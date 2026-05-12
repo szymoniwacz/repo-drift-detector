@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "repo/drift/detector"
+require "repo/drift/detector/analyzer"
 
 command = ARGV.first
 
@@ -15,6 +16,13 @@ when "analyze"
   puts "Analyzing repository drift..."
   puts "Goal: #{goal}"
   puts "Base: #{base}"
+
+  analyzer = Repo::Drift::Detector::Analyzer.new(base: base)
+  changed_files = analyzer.changed_files
+
+  puts
+  puts "Changed files:"
+  changed_files.each { |file| puts "- #{file}" }
 else
   puts "Unknown command"
 end
