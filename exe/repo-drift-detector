@@ -9,8 +9,12 @@ when "analyze"
   goal_index = ARGV.index("--goal")
   goal = ARGV[goal_index + 1] if goal_index
 
+  base_index = ARGV.index("--base")
+  base = ARGV[base_index + 1] if base_index
+
   puts "Analyzing repository drift..."
   puts "Goal: #{goal}"
+  puts "Base: #{base}"
 else
   puts "Unknown command"
 end
