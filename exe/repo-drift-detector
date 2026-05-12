@@ -2,4 +2,11 @@
 
 require "repo/drift/detector"
 
-Repo::Drift::Detector.run
+command = ARGV.first
+
+case command
+when "analyze"
+  puts "Analyzing repository drift..."
+else
+  puts "Unknown command"
+end
