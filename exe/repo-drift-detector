@@ -6,7 +6,11 @@ command = ARGV.first
 
 case command
 when "analyze"
+  goal_index = ARGV.index("--goal")
+  goal = ARGV[goal_index + 1] if goal_index
+
   puts "Analyzing repository drift..."
+  puts "Goal: #{goal}"
 else
   puts "Unknown command"
 end
