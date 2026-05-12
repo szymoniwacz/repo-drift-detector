@@ -4,7 +4,10 @@ module Repo
   module Drift
     module Detector
       class Error < StandardError; end
-      # Your code goes here...
+
+      def self.run
+        puts "repo-drift-detector"
+      end
     end
   end
 end
