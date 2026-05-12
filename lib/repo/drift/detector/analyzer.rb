@@ -24,6 +24,12 @@ module Repo
             }
           end
         end
+
+        def large_change_files(threshold: 20)
+          changed_file_stats.select do |stat|
+            stat[:total_changes] >= threshold
+          end
+        end
       end
     end
   end

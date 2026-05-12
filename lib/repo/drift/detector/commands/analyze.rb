@@ -18,6 +18,7 @@ module Repo
 
             print_changed_files
             print_change_stats
+            print_large_change_files
           end
 
           private
@@ -52,6 +53,20 @@ module Repo
             puts "Change stats:"
             analyzer.changed_file_stats.each do |stat|
               puts "- #{stat[:file]} (+#{stat[:added]}/-#{stat[:removed]}) total=#{stat[:total_changes]}"
+            end
+          end
+
+          def print_large_change_files
+            files = analyzer.large_change_files
+
+            puts
+            puts "Large changes:"
+            if files.empty?
+              puts "- none"
+            else
+              files.each do |stat|
+                puts "- #{stat[:file]} total=#{stat[:total_changes]}"
+              end
             end
           end
         end
