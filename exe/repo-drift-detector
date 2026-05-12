@@ -1,28 +1,15 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require "repo/drift/detector"
-require "repo/drift/detector/analyzer"
+require "repo/drift/detector/commands/analyze"
 
 command = ARGV.first
+args = ARGV.drop(1)
 
 case command
 when "analyze"
-  goal_index = ARGV.index("--goal")
-  goal = ARGV[goal_index + 1] if goal_index
-
-  base_index = ARGV.index("--base")
-  base = ARGV[base_index + 1] if base_index
-
-  puts "Analyzing repository drift..."
-  puts "Goal: #{goal}"
-  puts "Base: #{base}"
-
-  analyzer = Repo::Drift::Detector::Analyzer.new(base: base)
-  changed_files = analyzer.changed_files
-
-  puts
-  puts "Changed files:"
-  changed_files.each { |file| puts "- #{file}" }
+  Repo::Drift::Detector::Commands::Analyze.new(args).call
 else
   puts "Unknown command"
 end
