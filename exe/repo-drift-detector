@@ -1,15 +1,15 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "repo/drift/detector"
-require "repo/drift/detector/commands/analyze"
+require 'repo/drift/detector'
+require 'repo/drift/detector/commands/analyze'
 
 command = ARGV.first
 args = ARGV.drop(1)
 
 case command
-when "analyze"
+when 'analyze'
   Repo::Drift::Detector::Commands::Analyze.new(args).call
 else
-  puts "Unknown command"
+  puts 'Unknown command'
 end

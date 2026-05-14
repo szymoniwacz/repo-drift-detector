@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "repo/drift/detector/analyzer"
+require 'repo/drift/detector/analyzer'
 
 module Repo
   module Drift
@@ -12,7 +12,7 @@ module Repo
           end
 
           def call
-            puts "Analyzing repository drift..."
+            puts 'Analyzing repository drift...'
             puts "Goal: #{goal}"
             puts "Base: #{base}"
 
@@ -26,11 +26,11 @@ module Repo
           attr_reader :argv
 
           def goal
-            option_value("--goal")
+            option_value('--goal')
           end
 
           def base
-            option_value("--base")
+            option_value('--base')
           end
 
           def analyzer
@@ -44,13 +44,13 @@ module Repo
 
           def print_changed_files
             puts
-            puts "Changed files:"
+            puts 'Changed files:'
             analyzer.changed_files.each { |file| puts "- #{file}" }
           end
 
           def print_change_stats
             puts
-            puts "Change stats:"
+            puts 'Change stats:'
             analyzer.changed_file_stats.each do |stat|
               puts "- #{stat[:file]} (+#{stat[:added]}/-#{stat[:removed]}) total=#{stat[:total_changes]}"
             end
@@ -60,9 +60,9 @@ module Repo
             files = analyzer.large_change_files
 
             puts
-            puts "Large changes:"
+            puts 'Large changes:'
             if files.empty?
-              puts "- none"
+              puts '- none'
             else
               files.each do |stat|
                 puts "- #{stat[:file]} total=#{stat[:total_changes]}"

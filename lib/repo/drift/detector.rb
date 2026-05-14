@@ -1,4 +1,6 @@
-require "repo/drift/detector/version"
+# frozen_string_literal: true
+
+require 'repo/drift/detector/version'
 
 module Repo
   module Drift
@@ -6,7 +8,7 @@ module Repo
       class Error < StandardError; end
 
       def self.run
-        puts "repo-drift-detector"
+        puts 'repo-drift-detector'
       end
     end
   end
