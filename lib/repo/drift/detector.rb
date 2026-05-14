@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'repo/drift/detector/version'
+require 'repo/drift/detector/analyzer'
 
 module Repo
   module Drift
