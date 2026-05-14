@@ -19,6 +19,7 @@ module Repo
             print_changed_files
             print_change_stats
             print_large_change_files
+            print_high_risk_files
             print_risk_level
           end
 
@@ -74,6 +75,18 @@ module Repo
           def print_risk_level
             puts
             puts "Risk level: #{analyzer.risk_level}"
+          end
+
+          def print_high_risk_files
+            files = analyzer.high_risk_files
+
+            puts
+            puts 'High risk files:'
+            if files.empty?
+              puts '- none'
+            else
+              files.each { |file| puts "- #{file}" }
+            end
           end
         end
       end

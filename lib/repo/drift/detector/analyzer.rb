@@ -43,6 +43,14 @@ module Repo
             :high
           end
         end
+
+        def high_risk_files
+          changed_files.select do |file|
+            file.include?('cli') ||
+              file.include?('commands') ||
+              file.include?('analyzer')
+          end
+        end
       end
     end
   end
