@@ -30,6 +30,19 @@ module Repo
             stat[:total_changes] >= threshold
           end
         end
+
+        def risk_level
+          total_changes = changed_file_stats.sum { |stat| stat[:total_changes] }
+
+          case total_changes
+          when 0..20
+            :low
+          when 21..100
+            :medium
+          else
+            :high
+          end
+        end
       end
     end
   end

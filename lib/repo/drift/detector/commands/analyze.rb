@@ -19,6 +19,7 @@ module Repo
             print_changed_files
             print_change_stats
             print_large_change_files
+            print_risk_level
           end
 
           private
@@ -68,6 +69,11 @@ module Repo
                 puts "- #{stat[:file]} total=#{stat[:total_changes]}"
               end
             end
+          end
+
+          def print_risk_level
+            puts
+            puts "Risk level: #{analyzer.risk_level}"
           end
         end
       end
