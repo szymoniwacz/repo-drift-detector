@@ -16,6 +16,14 @@ module Repo
           changed_files.count
         end
 
+        def documentation_files
+          changed_files.select do |file|
+            file == 'README.md' ||
+              file.start_with?('docs/') ||
+              file.end_with?('.md')
+          end
+        end
+
         def changed_file_stats
           `git diff --numstat #{@base}`.split("\n").map do |line|
             added, removed, file = line.split("\t")

@@ -45,6 +45,82 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     end
   end
 
+  describe '#documentation_files' do
+    it 'detects README.md' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['README.md', 'lib/helper.rb'])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to include('README.md')
+      expect(doc_files).not_to include('lib/helper.rb')
+    end
+
+    it 'detects files in docs/ directory' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['docs/guide.md', 'docs/setup.txt', 'lib/code.rb'])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to include('docs/guide.md', 'docs/setup.txt')
+      expect(doc_files).not_to include('lib/code.rb')
+    end
+
+    it 'detects files ending with .md' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['CONTRIBUTING.md', 'CHANGELOG.md', 'lib/code.rb'])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to include('CONTRIBUTING.md', 'CHANGELOG.md')
+      expect(doc_files).not_to include('lib/code.rb')
+    end
+
+    it 'returns empty array when there are no doc files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/code.rb', 'spec/code_spec.rb'])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to be_empty
+    end
+
+    it 'handles multiple doc files mixed with code files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([
+                                                              'README.md',
+                                                              'docs/install.md',
+                                                              'lib/main.rb',
+                                                              'CHANGELOG.md',
+                                                              'lib/helper.rb'
+                                                            ])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files.count).to eq(3)
+      expect(doc_files).to include('README.md', 'docs/install.md', 'CHANGELOG.md')
+    end
+
+    it 'returns empty array when no files changed' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to be_empty
+    end
+
+    it 'does not match .md in middle of filename' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['src/readme_helper.rb'])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to be_empty
+    end
+
+    it 'detects nested docs directories' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['docs/api/endpoints.md', 'docs/guides/setup.md'])
+
+      doc_files = analyzer.documentation_files
+      expect(doc_files).to include('docs/api/endpoints.md', 'docs/guides/setup.md')
+    end
+  end
+
   describe '#changed_file_stats' do
     it 'parses git diff --numstat output' do
       output = "10\t5\tfile1.rb\n20\t10\tfile2.rb"

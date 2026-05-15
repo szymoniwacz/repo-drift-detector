@@ -20,6 +20,7 @@ module Repo
             print_changed_files
             print_change_stats
             print_large_change_files
+            print_documentation_files
             print_high_risk_files
             print_risk_level
           end
@@ -75,6 +76,18 @@ module Repo
               files.each do |stat|
                 puts "- #{stat[:file]} total=#{stat[:total_changes]}"
               end
+            end
+          end
+
+          def print_documentation_files
+            files = analyzer.documentation_files
+
+            puts
+            puts 'Documentation files:'
+            if files.empty?
+              puts '- none'
+            else
+              files.each { |file| puts "- #{file}" }
             end
           end
 
