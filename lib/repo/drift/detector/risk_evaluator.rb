@@ -4,8 +4,9 @@ module Repo
   module Drift
     module Detector
       class RiskEvaluator
-        def initialize(signals)
+        def initialize(signals, config)
           @signals = signals
+          @config = config
         end
 
         def risk_level
@@ -18,7 +19,7 @@ module Repo
 
         private
 
-        attr_reader :signals
+        attr_reader :signals, :config
 
         def assessment
           @assessment ||= build_assessment
@@ -36,17 +37,25 @@ module Repo
         end
 
         def risk_reason_tokens(total_changes, ratio, has_high_risk)
+          h = config.high_change_threshold
+          m = config.medium_change_threshold
+          r = config.unsafe_change_ratio_threshold
+
           [].tap do |tokens|
-            tokens << 'total_changes_above_100' if total_changes > 100
-            tokens << 'unsafe_change_ratio_above_threshold' if ratio >= 3.0
-            tokens << 'total_changes_above_20' if total_changes > 20
+            tokens << "total_changes_above_#{h}" if total_changes > h
+            tokens << 'unsafe_change_ratio_above_threshold' if ratio >= r
+            tokens << "total_changes_above_#{m}" if total_changes > m
             tokens << 'high_risk_files_detected' if has_high_risk
           end
         end
 
         def risk_tier(total_changes, ratio, has_high_risk)
-          return :high if total_changes > 100 || ratio >= 3.0
-          return :medium if total_changes > 20 || has_high_risk
+          h = config.high_change_threshold
+          m = config.medium_change_threshold
+          r = config.unsafe_change_ratio_threshold
+
+          return :high if total_changes > h || ratio >= r
+          return :medium if total_changes > m || has_high_risk
 
           :low
         end

@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 require_relative 'risk_evaluator'
+require_relative 'config'
 
 module Repo
   module Drift
     module Detector
       class Analyzer
-        def initialize(base:)
+        def initialize(base:, config: nil)
           @base = base
+          @config_override = config
         end
 
         def changed_files
@@ -84,8 +86,12 @@ module Repo
 
         private
 
+        def resolved_config
+          @resolved_config ||= @config_override || Config.load
+        end
+
         def risk_evaluator
-          @risk_evaluator ||= RiskEvaluator.new(self)
+          @risk_evaluator ||= RiskEvaluator.new(self, resolved_config)
         end
       end
     end

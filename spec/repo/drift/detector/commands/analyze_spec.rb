@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'repo/drift/detector/commands/analyze'
+require 'tmpdir'
 require 'stringio'
 require 'json'
 
@@ -203,6 +204,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         'risk_level' => 'medium',
         'risk_reasons' => %w[high_risk_files_detected total_changes_above_20]
       )
+      expect(output.chomp).to eq(JSON.pretty_generate(json))
+      expect(output.lines.size).to be > 1
       expect(output).not_to include('Goal:')
       expect(output).not_to include('Changed files:')
       expect(output).not_to include('High risk files:')
@@ -237,7 +240,9 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
 
       output = capture_output { command.call }
 
-      expect(JSON.parse(output)['risk_reasons']).to eq([])
+      parsed = JSON.parse(output)
+      expect(parsed['risk_reasons']).to eq([])
+      expect(output.chomp).to eq(JSON.pretty_generate(parsed))
     end
 
     it 'handles no changed files cleanly' do
@@ -408,6 +413,25 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       expect(stdout).to be_empty
     end
 
+    it 'prints config error and exits 2 when .repo-drift-detector.yml is invalid' do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, Repo::Drift::Detector::Config::FILENAME), "{not yaml")
+        Dir.chdir(dir) do
+          argv = ['--goal', 'feature', '--base', 'main']
+          command = described_class.new(argv)
+
+          stdout, stderr = capture_output_and_error do
+            expect { command.call }.to raise_error(SystemExit) do |error|
+              expect(error.status).to eq(2)
+            end
+          end
+
+          expect(stderr).to match(/invalid YAML/i)
+          expect(stdout).to be_empty
+        end
+      end
+    end
+
     it 'still prints valid JSON when using --format json and --fail-on medium' do
       argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--fail-on', 'medium']
       command = described_class.new(argv)
@@ -444,6 +468,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       parsed = JSON.parse(stdout)
       expect(parsed['risk_level']).to eq('medium')
       expect(parsed['risk_reasons']).to eq(['total_changes_above_20'])
+      expect(stdout.chomp).to eq(JSON.pretty_generate(parsed))
       expect(stderr).to be_empty
     end
   end

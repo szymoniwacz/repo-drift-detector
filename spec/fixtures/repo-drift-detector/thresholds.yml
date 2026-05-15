@@ -1,0 +1,4 @@
+risk:
+  medium_change_threshold: 15
+  high_change_threshold: 90
+  unsafe_change_ratio_threshold: 2.5

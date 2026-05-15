@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'repo/drift/detector/analyzer'
+require 'repo/drift/detector/config'
 require 'repo/drift/detector/renderers/text_renderer'
 require 'repo/drift/detector/renderers/json_renderer'
 
@@ -35,6 +36,7 @@ module Repo
 
           def call
             validate_fail_on
+            load_config!
 
             if json?
               Renderers::JsonRenderer.new.render(summary)
@@ -58,7 +60,14 @@ module Repo
           end
 
           def analyzer
-            @analyzer ||= Analyzer.new(base: base)
+            @analyzer ||= Analyzer.new(base: base, config: load_config!)
+          end
+
+          def load_config!
+            @load_config ||= Config.load
+          rescue ConfigError => e
+            warn e.message
+            exit 2
           end
 
           def option_value(name)

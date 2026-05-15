@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'tmpdir'
 require 'repo/drift/detector/analyzer'
 
 RSpec.describe Repo::Drift::Detector::Analyzer do
@@ -869,6 +870,27 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
       allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_reasons).to eq(['unsafe_change_ratio_above_threshold'])
+    end
+
+    it 'uses thresholds from a loaded config file' do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, Repo::Drift::Detector::Config::FILENAME), <<~YAML)
+          risk:
+            medium_change_threshold: 15
+            high_change_threshold: 90
+            unsafe_change_ratio_threshold: 3.0
+        YAML
+        config = Repo::Drift::Detector::Config.load(cwd: dir)
+        analyzer = described_class.new(base: 'main', config: config)
+        allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                     { file: 'file.rb', added: 16, removed: 0,
+                                                                       total_changes: 16 }
+                                                                   ])
+        allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+        allow(analyzer).to receive(:high_risk_files).and_return([])
+
+        expect(analyzer.risk_reasons).to eq(['total_changes_above_15'])
+      end
     end
   end
 end

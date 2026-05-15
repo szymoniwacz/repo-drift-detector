@@ -8,7 +8,7 @@ module Repo
       module Renderers
         class JsonRenderer
           def render(summary)
-            puts JSON.generate(summary)
+            puts JSON.pretty_generate(summary)
           end
         end
       end
