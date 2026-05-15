@@ -2,20 +2,39 @@
 
 require 'repo/drift/detector/analyzer'
 
+require 'json'
+
 module Repo
   module Drift
     module Detector
       module Commands
         class Analyze
+          SUMMARY_METRIC_METHODS = {
+            changed_file_count: :changed_file_count,
+            changed_files: :changed_files,
+            change_stats: :changed_file_stats,
+            large_changes: :large_change_files,
+            documentation_files: :documentation_files,
+            test_files: :test_files,
+            production_files: :production_files,
+            unsafe_change_ratio: :unsafe_change_ratio,
+            high_risk_files: :high_risk_files,
+            risk_level: :risk_level
+          }.freeze
+
           def initialize(argv)
             @argv = argv
           end
 
           def call
-            puts 'Analyzing repository drift...'
-            puts "Goal: #{goal}"
-            puts "Base: #{base}"
-            print_analysis
+            if json?
+              puts JSON.generate(summary)
+            else
+              puts 'Analyzing repository drift...'
+              puts "Goal: #{goal}"
+              puts "Base: #{base}"
+              print_analysis
+            end
           end
 
           private
@@ -141,6 +160,18 @@ module Repo
             else
               files.each { |file| puts "- #{file}" }
             end
+          end
+
+          def json?
+            option_value('--format') == 'json'
+          end
+
+          def summary
+            summary_metrics.merge(goal: goal, base: base)
+          end
+
+          def summary_metrics
+            SUMMARY_METRIC_METHODS.transform_values { |method_name| analyzer.public_send(method_name) }
           end
         end
       end

@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'repo/drift/detector/commands/analyze'
 require 'stringio'
+require 'json'
 
 RSpec.describe Repo::Drift::Detector::Commands::Analyze do
   describe '#call' do
@@ -117,6 +118,53 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       output = capture_output { command.call }
 
       expect(output).to include('Risk level: medium')
+    end
+
+    it 'outputs valid JSON when format json is requested' do
+      argv = ['--goal', 'feature', '--base', 'main', '--format', 'json']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_count).and_return(2)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return(['file1.rb', 'file2.rb'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([
+          { file: 'file1.rb', added: 1, removed: 0, total_changes: 1 },
+          { file: 'file2.rb', added: 2, removed: 1, total_changes: 3 }
+        ])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([
+          { file: 'file2.rb', added: 2, removed: 1, total_changes: 3 }
+        ])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:documentation_files).and_return(['README.md'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:test_files).and_return(['spec/analyzer_spec.rb'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:production_files).and_return(['file1.rb', 'file2.rb'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:unsafe_change_ratio).and_return(2.0)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return(['file2.rb'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:medium)
+
+      output = capture_output { command.call }
+      json = JSON.parse(output)
+
+      expect(json).to include(
+        'goal' => 'feature',
+        'base' => 'main',
+        'changed_file_count' => 2,
+        'changed_files' => ['file1.rb', 'file2.rb'],
+        'unsafe_change_ratio' => 2.0,
+        'high_risk_files' => ['file2.rb'],
+        'risk_level' => 'medium'
+      )
+      expect(output).not_to include('Goal:')
+      expect(output).not_to include('Changed files:')
+      expect(output).not_to include('High risk files:')
     end
 
     it 'handles no changed files cleanly' do
