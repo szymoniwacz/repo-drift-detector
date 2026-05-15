@@ -4,6 +4,7 @@ require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
 require 'repo/drift/detector/renderers/text_renderer'
 require 'repo/drift/detector/renderers/json_renderer'
+require_relative 'analyze/argument_validator'
 
 module Repo
   module Drift
@@ -35,7 +36,7 @@ module Repo
           end
 
           def call
-            validate_fail_on
+            ArgumentValidator.new(argv).validate
             load_config!
 
             if json?
@@ -92,14 +93,6 @@ module Repo
 
             current_level = FAIL_ON_LEVELS[analyzer.risk_level.to_s]
             exit 1 if current_level >= FAIL_ON_LEVELS[fail_on]
-          end
-
-          def validate_fail_on
-            return unless fail_on
-            return if FAIL_ON_LEVELS.key?(fail_on)
-
-            warn "Invalid --fail-on value '#{fail_on}'. Valid values are: #{FAIL_ON_LEVELS.keys.join(', ')}."
-            exit 2
           end
 
           def fail_on
