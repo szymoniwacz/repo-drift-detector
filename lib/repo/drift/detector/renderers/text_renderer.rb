@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'stringio'
+
 module Repo
   module Drift
     module Detector
@@ -7,34 +9,45 @@ module Repo
         class TextRenderer
           def render(analyzer:, goal:, base:)
             @analyzer = analyzer
-            puts 'Analyzing repository drift...'
-            puts "Goal: #{goal}"
-            puts "Base: #{base}"
-            print_analysis
+            @out = StringIO.new
+            write_intro(goal, base)
+            write_analysis
+            @out.string
           ensure
             @analyzer = nil
+            @out = nil
           end
 
           private
 
-          attr_reader :analyzer
+          attr_reader :analyzer, :out
 
-          def print_analysis
-            print_changed_file_count
-            print_changed_files
-            print_change_stats
-            print_large_change_files
-            print_hyphen_list_section('Documentation files', analyzer.documentation_files)
-            print_hyphen_list_section('Test files', analyzer.test_files)
-            print_hyphen_list_section('Production files', analyzer.production_files)
-            print_unsafe_change_ratio
-            print_risk_summary
+          def write_intro(goal, base)
+            out.puts 'Analyzing repository drift...'
+            out.puts "Goal: #{goal}"
+            out.puts "Base: #{base}"
           end
 
-          def print_risk_summary
-            print_hyphen_list_section('High risk files', analyzer.high_risk_files)
-            print_risk_level
-            print_hyphen_list_section('Risk reasons', risk_reason_lines)
+          def write_analysis
+            write_changed_file_count
+            write_changed_files
+            write_change_stats
+            write_large_change_files
+            write_folder_lists
+            write_unsafe_change_ratio
+            write_risk_summary
+          end
+
+          def write_folder_lists
+            PrintHyphenList.call('Documentation files', analyzer.documentation_files, out)
+            PrintHyphenList.call('Test files', analyzer.test_files, out)
+            PrintHyphenList.call('Production files', analyzer.production_files, out)
+          end
+
+          def write_risk_summary
+            PrintHyphenList.call('High risk files', analyzer.high_risk_files, out)
+            write_risk_level
+            PrintHyphenList.call('Risk reasons', risk_reason_lines, out)
           end
 
           def risk_reason_lines
@@ -44,57 +57,52 @@ module Repo
             reasons
           end
 
-          def print_changed_file_count
-            puts
-            puts "Changed file count: #{analyzer.changed_file_count}"
+          def write_changed_file_count
+            out.puts
+            out.puts "Changed file count: #{analyzer.changed_file_count}"
           end
 
-          def print_changed_files
-            puts
-            puts 'Changed files:'
-            analyzer.changed_files.each { |file| puts "- #{file}" }
+          def write_changed_files
+            out.puts
+            out.puts 'Changed files:'
+            analyzer.changed_files.each { |file| out.puts "- #{file}" }
           end
 
-          def print_change_stats
-            puts
-            puts 'Change stats:'
+          def write_change_stats
+            out.puts
+            out.puts 'Change stats:'
             analyzer.changed_file_stats.each do |stat|
-              puts "- #{stat[:file]} (+#{stat[:added]}/-#{stat[:removed]}) total=#{stat[:total_changes]}"
+              out.puts "- #{stat[:file]} (+#{stat[:added]}/-#{stat[:removed]}) total=#{stat[:total_changes]}"
             end
           end
 
-          def print_large_change_files
+          def write_large_change_files
             lines = analyzer.large_change_files.map do |stat|
               "#{stat[:file]} total=#{stat[:total_changes]}"
             end
-            print_hyphen_list_section('Large changes', lines)
+            PrintHyphenList.call('Large changes', lines, out)
           end
 
-          def print_hyphen_list_section(title, elements)
-            PrintHyphenList.call(title, elements)
+          def write_unsafe_change_ratio
+            out.puts
+            out.puts "Unsafe change ratio: #{format('%.1f', analyzer.unsafe_change_ratio)}"
           end
 
-          def print_unsafe_change_ratio
-            puts
-            puts "Unsafe change ratio: #{format('%.1f', analyzer.unsafe_change_ratio)}"
+          def write_risk_level
+            out.puts
+            out.puts "Risk level: #{analyzer.risk_level}"
           end
 
-          def print_risk_level
-            puts
-            puts "Risk level: #{analyzer.risk_level}"
-          end
-
-          # Shared hyphen-list formatter keeps this class under RuboCop limits.
           module PrintHyphenList
             module_function
 
-            def call(title, elements)
-              puts
-              puts "#{title}:"
+            def call(title, elements, output)
+              output.puts
+              output.puts "#{title}:"
               if elements.empty?
-                puts '- none'
+                output.puts '- none'
               else
-                elements.each { |el| puts "- #{el}" }
+                elements.each { |el| output.puts "- #{el}" }
               end
             end
           end

@@ -39,11 +39,13 @@ module Repo
             ArgumentValidator.new(argv).validate
             load_config!
 
-            if json?
-              Renderers::JsonRenderer.new.render(summary)
-            else
-              Renderers::TextRenderer.new.render(analyzer: analyzer, goal: goal, base: base)
-            end
+            content = if json?
+                        Renderers::JsonRenderer.new.render(summary)
+                      else
+                        Renderers::TextRenderer.new.render(analyzer: analyzer, goal: goal, base: base)
+                      end
+
+            deliver_output(content)
 
             handle_fail_on
           end
@@ -97,6 +99,27 @@ module Repo
 
           def fail_on
             option_value('--fail-on')
+          end
+
+          def output_path
+            option_value('--output')
+          end
+
+          def deliver_output(content)
+            path = output_path
+            if path
+              write_output_file(content, path)
+              puts "Analysis written to #{path}"
+            else
+              puts content
+            end
+          end
+
+          def write_output_file(content, path)
+            File.write(path, content)
+          rescue SystemCallError => e
+            warn "Cannot write output to #{path}: #{e.message}"
+            exit 2
           end
         end
       end

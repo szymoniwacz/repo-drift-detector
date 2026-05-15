@@ -14,6 +14,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
 
       output = capture_output { command.call }
 
+      expect(output).not_to include('Analysis written to')
       expect(output).to include('Goal: feature-branch')
       expect(output).to include('Base: main')
     end
@@ -470,6 +471,167 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       expect(parsed['risk_reasons']).to eq(['total_changes_above_20'])
       expect(stdout.chomp).to eq(JSON.pretty_generate(parsed))
       expect(stderr).to be_empty
+    end
+
+    it 'writes text analysis to --output file' do
+      Dir.mktmpdir do |dir|
+        out_file = File.join(dir, 'report.txt')
+        argv = ['--goal', 'feature', '--base', 'main', '--output', out_file]
+        command = described_class.new(argv)
+
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_stats).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:large_change_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:high_risk_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_level).and_return(:low)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_reasons).and_return([])
+
+        stdout = capture_output { command.call }
+
+        written = File.read(out_file)
+        expect(written).to include('Analyzing repository drift...')
+        expect(written).to include('Goal: feature')
+        expect(written).to include('Base: main')
+        expect(written).to include('Risk level: low')
+        expect(stdout).to eq("Analysis written to #{out_file}\n")
+      end
+    end
+
+    it 'writes pretty JSON to --output file' do
+      Dir.mktmpdir do |dir|
+        out_file = File.join(dir, 'drift-report.json')
+        argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--output', out_file]
+        command = described_class.new(argv)
+
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_count).and_return(1)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_files).and_return(['file1.rb'])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_stats).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:large_change_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:documentation_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:test_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:production_files).and_return(['file1.rb'])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:unsafe_change_ratio).and_return(0.0)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:high_risk_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_level).and_return(:low)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_reasons).and_return([])
+
+        stdout = capture_output { command.call }
+
+        file_body = File.read(out_file)
+        parsed = JSON.parse(file_body)
+        expect(parsed['goal']).to eq('feature')
+        expect(parsed['base']).to eq('main')
+        expect(parsed['risk_level']).to eq('low')
+        expect(file_body.chomp).to eq(JSON.pretty_generate(parsed))
+        expect(file_body.lines.size).to be > 1
+        expect(stdout).to eq("Analysis written to #{out_file}\n")
+        expect(stdout).not_to include('changed_file_count')
+      end
+    end
+
+    it 'exits 2 when --output path cannot be written' do
+      root = Dir.mktmpdir
+      bad_path = File.join(root, 'missing', 'out.txt')
+      argv = ['--goal', 'feature', '--base', 'main', '--output', bad_path]
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
+
+      stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(2)
+        end
+      end
+
+      expect(stderr).to match(/Cannot write output/)
+      expect(stdout).to be_empty
+    end
+
+    it 'exits 2 when --output is missing a path' do
+      argv = ['--goal', 'feature', '--base', 'main', '--output']
+      command = described_class.new(argv)
+
+      stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(2)
+        end
+      end
+
+      expect(stderr).to include('Invalid --output')
+      expect(stdout).to be_empty
+    end
+
+    it 'writes JSON to file then exits 1 for --fail-on when risk is high' do
+      Dir.mktmpdir do |dir|
+        out_file = File.join(dir, 'out.json')
+        argv = [
+          '--goal', 'feature', '--base', 'main',
+          '--format', 'json', '--output', out_file,
+          '--fail-on', 'high'
+        ]
+        command = described_class.new(argv)
+
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_count).and_return(0)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_stats).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:large_change_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:documentation_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:test_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:production_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:unsafe_change_ratio).and_return(0.0)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:high_risk_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_level).and_return(:high)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_reasons).and_return(['unsafe_change_ratio_above_threshold'])
+
+        stdout, stderr = capture_output_and_error do
+          expect { command.call }.to raise_error(SystemExit) do |error|
+            expect(error.status).to eq(1)
+          end
+        end
+
+        expect(JSON.parse(File.read(out_file))['risk_level']).to eq('high')
+        expect(stdout).to eq("Analysis written to #{out_file}\n")
+        expect(stderr).to be_empty
+      end
     end
   end
 

@@ -33,5 +33,49 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze::ArgumentValidator do
       expect(stderr_io.string).to include("Invalid --fail-on value 'critical'")
       expect(stderr_io.string).to include('low')
     end
+
+    it 'allows argv with a valid --output path' do
+      argv = ['--goal', 'g', '--base', 'main', '--output', 'report.txt']
+      expect { described_class.new(argv).validate }.not_to raise_error
+    end
+
+    it 'allows argv without --output' do
+      argv = ['--goal', 'g', '--base', 'main']
+      expect { described_class.new(argv).validate }.not_to raise_error
+    end
+
+    it 'exits 2 and warns when --output is missing a path' do
+      argv = ['--goal', 'g', '--base', 'main', '--output']
+
+      stderr_io = StringIO.new
+      old_stderr = $stderr
+      $stderr = stderr_io
+      begin
+        expect { described_class.new(argv).validate }.to raise_error(SystemExit) do |err|
+          expect(err.status).to eq(2)
+        end
+      ensure
+        $stderr = old_stderr
+      end
+
+      expect(stderr_io.string).to include('Invalid --output')
+    end
+
+    it 'exits 2 and warns when --output value is another flag' do
+      argv = ['--goal', 'g', '--base', 'main', '--output', '--format']
+
+      stderr_io = StringIO.new
+      old_stderr = $stderr
+      $stderr = stderr_io
+      begin
+        expect { described_class.new(argv).validate }.to raise_error(SystemExit) do |err|
+          expect(err.status).to eq(2)
+        end
+      ensure
+        $stderr = old_stderr
+      end
+
+      expect(stderr_io.string).to include('Invalid --output')
+    end
   end
 end

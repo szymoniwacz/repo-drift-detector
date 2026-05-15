@@ -13,6 +13,7 @@ module Repo
 
             def validate
               validate_fail_on_option
+              validate_output_option
             end
 
             private
@@ -30,6 +31,16 @@ module Repo
               return if Analyze::FAIL_ON_LEVELS.key?(value)
 
               warn "Invalid --fail-on value '#{value}'. Valid values are: #{Analyze::FAIL_ON_LEVELS.keys.join(', ')}."
+              exit 2
+            end
+
+            def validate_output_option
+              return unless argv.include?('--output')
+
+              path = option_value('--output')
+              return if path.is_a?(String) && !path.empty? && !path.start_with?('-')
+
+              warn 'Invalid --output: a file path is required after --output'
               exit 2
             end
           end
