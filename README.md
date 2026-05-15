@@ -24,6 +24,19 @@ Or install it yourself as:
 
 TODO: Write usage instructions here
 
+## CI usage
+
+Locally (aligns with GitHub Actions):
+
+```bash
+mise exec -- bundle install
+mise exec -- bundle exec rspec
+mise exec -- bundle exec rubocop
+mise exec -- bundle exec exe/repo-drift-detector analyze --base origin/main --format json --fail-on high
+```
+
+The **CI** workflow runs on pull requests and on pushes to `main`: it sets up Ruby with mise, runs RSpec and RuboCop, then runs `analyze` with **`--format json`** so the log is a machine-readable report (risk level, `risk_reasons`, and change metrics). **`--fail-on high`** fails the job when the tool reports high risk, so drift stays visible in PR checks.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.

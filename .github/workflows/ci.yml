@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v2
+
+      - name: Install dependencies
+        run: mise exec -- bundle install
+
+      - name: RSpec
+        run: mise exec -- bundle exec rspec
+
+      - name: RuboCop
+        run: mise exec -- bundle exec rubocop
+
+      - name: repo-drift-detector analyze
+        run: |
+          git fetch origin main
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/main"
+          else
+            BASE="$(git rev-parse HEAD~1)"
+          fi
+          mise exec -- bundle exec exe/repo-drift-detector analyze \
+            --base "$BASE" \
+            --format json \
+            --fail-on high
