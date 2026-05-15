@@ -210,6 +210,150 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
 
       expect(output).to start_with('Analyzing repository drift...')
     end
+
+    it 'does not fail when no fail-on is provided' do
+      argv = ['--goal', 'feature', '--base', 'main']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+
+      expect { command.call }.not_to raise_error
+    end
+
+    it 'fails with status 1 for high risk when --fail-on high is provided' do
+      argv = ['--goal', 'feature', '--base', 'main', '--fail-on', 'high']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:high)
+
+      expect { capture_output { command.call } }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(1)
+      end
+    end
+
+    it 'does not fail for medium risk when --fail-on high is provided' do
+      argv = ['--goal', 'feature', '--base', 'main', '--fail-on', 'high']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:medium)
+
+      expect { command.call }.not_to raise_error
+    end
+
+    it 'fails with status 1 for medium risk when --fail-on medium is provided' do
+      argv = ['--goal', 'feature', '--base', 'main', '--fail-on', 'medium']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:medium)
+
+      expect { capture_output { command.call } }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(1)
+      end
+    end
+
+    it 'does not fail for low risk when --fail-on medium is provided' do
+      argv = ['--goal', 'feature', '--base', 'main', '--fail-on', 'medium']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+
+      expect { command.call }.not_to raise_error
+    end
+
+    it 'prints an error and exits 2 for invalid --fail-on values' do
+      argv = ['--goal', 'feature', '--base', 'main', '--fail-on', 'critical']
+      command = described_class.new(argv)
+
+      stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(2)
+        end
+      end
+
+      expect(stderr).to include("Invalid --fail-on value 'critical'")
+      expect(stdout).to be_empty
+    end
+
+    it 'still prints valid JSON when using --format json and --fail-on medium' do
+      argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--fail-on', 'medium']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_count).and_return(1)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return(['file1.rb'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:documentation_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:test_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:production_files).and_return(['file1.rb'])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:unsafe_change_ratio).and_return(0.0)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:medium)
+
+      stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(1)
+        end
+      end
+
+      parsed = JSON.parse(stdout)
+      expect(parsed['risk_level']).to eq('medium')
+      expect(stderr).to be_empty
+    end
   end
 
   private
@@ -221,5 +365,17 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
     $stdout.string
   ensure
     $stdout = old_stdout
+  end
+
+  def capture_output_and_error
+    old_stdout = $stdout
+    old_stderr = $stderr
+    $stdout = StringIO.new
+    $stderr = StringIO.new
+    yield
+    [$stdout.string, $stderr.string]
+  ensure
+    $stdout = old_stdout
+    $stderr = old_stderr
   end
 end

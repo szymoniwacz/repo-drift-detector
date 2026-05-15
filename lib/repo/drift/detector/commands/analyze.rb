@@ -22,11 +22,19 @@ module Repo
             risk_level: :risk_level
           }.freeze
 
+          FAIL_ON_LEVELS = {
+            'low' => 0,
+            'medium' => 1,
+            'high' => 2
+          }.freeze
+
           def initialize(argv)
             @argv = argv
           end
 
           def call
+            validate_fail_on
+
             if json?
               puts JSON.generate(summary)
             else
@@ -35,6 +43,8 @@ module Repo
               puts "Base: #{base}"
               print_analysis
             end
+
+            handle_fail_on
           end
 
           private
@@ -172,6 +182,25 @@ module Repo
 
           def summary_metrics
             SUMMARY_METRIC_METHODS.transform_values { |method_name| analyzer.public_send(method_name) }
+          end
+
+          def handle_fail_on
+            return unless fail_on
+
+            current_level = FAIL_ON_LEVELS[analyzer.risk_level.to_s]
+            exit 1 if current_level >= FAIL_ON_LEVELS[fail_on]
+          end
+
+          def validate_fail_on
+            return unless fail_on
+            return if FAIL_ON_LEVELS.key?(fail_on)
+
+            warn "Invalid --fail-on value '#{fail_on}'. Valid values are: #{FAIL_ON_LEVELS.keys.join(', ')}."
+            exit 2
+          end
+
+          def fail_on
+            option_value('--fail-on')
           end
         end
       end
