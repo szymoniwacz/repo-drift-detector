@@ -2,11 +2,12 @@ AllCops:
   NewCops: enable
   SuggestExtensions: false
   Exclude:
-    - 'spec/**/*'
+    - "spec/**/*"
+    - "vendor/**/*"
 
 Style/Documentation:
   Enabled: false
 
 Metrics/BlockLength:
   Exclude:
-    - 'spec/**/*'
+    - "spec/**/*"
