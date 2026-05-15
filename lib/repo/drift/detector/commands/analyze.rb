@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require 'repo/drift/detector/analyzer'
-
-require 'json'
+require 'repo/drift/detector/renderers/text_renderer'
+require 'repo/drift/detector/renderers/json_renderer'
 
 module Repo
   module Drift
@@ -37,12 +37,9 @@ module Repo
             validate_fail_on
 
             if json?
-              puts JSON.generate(summary)
+              Renderers::JsonRenderer.new.render(summary)
             else
-              puts 'Analyzing repository drift...'
-              puts "Goal: #{goal}"
-              puts "Base: #{base}"
-              print_analysis
+              Renderers::TextRenderer.new.render(analyzer: analyzer, goal: goal, base: base)
             end
 
             handle_fail_on
@@ -51,24 +48,6 @@ module Repo
           private
 
           attr_reader :argv
-
-          def print_analysis
-            print_changed_file_count
-            print_changed_files
-            print_change_stats
-            print_large_change_files
-            print_documentation_files
-            print_test_files
-            print_production_files
-            print_unsafe_change_ratio
-            print_risk_summary
-          end
-
-          def print_risk_summary
-            print_high_risk_files
-            print_risk_level
-            print_risk_reasons
-          end
 
           def goal
             option_value('--goal')
@@ -85,108 +64,6 @@ module Repo
           def option_value(name)
             index = argv.index(name)
             argv[index + 1] if index
-          end
-
-          def print_changed_file_count
-            puts
-            puts "Changed file count: #{analyzer.changed_file_count}"
-          end
-
-          def print_changed_files
-            puts
-            puts 'Changed files:'
-            analyzer.changed_files.each { |file| puts "- #{file}" }
-          end
-
-          def print_change_stats
-            puts
-            puts 'Change stats:'
-            analyzer.changed_file_stats.each do |stat|
-              puts "- #{stat[:file]} (+#{stat[:added]}/-#{stat[:removed]}) total=#{stat[:total_changes]}"
-            end
-          end
-
-          def print_large_change_files
-            files = analyzer.large_change_files
-
-            puts
-            puts 'Large changes:'
-            if files.empty?
-              puts '- none'
-            else
-              files.each do |stat|
-                puts "- #{stat[:file]} total=#{stat[:total_changes]}"
-              end
-            end
-          end
-
-          def print_documentation_files
-            files = analyzer.documentation_files
-
-            puts
-            puts 'Documentation files:'
-            if files.empty?
-              puts '- none'
-            else
-              files.each { |file| puts "- #{file}" }
-            end
-          end
-
-          def print_test_files
-            files = analyzer.test_files
-
-            puts
-            puts 'Test files:'
-            if files.empty?
-              puts '- none'
-            else
-              files.each { |file| puts "- #{file}" }
-            end
-          end
-
-          def print_production_files
-            files = analyzer.production_files
-
-            puts
-            puts 'Production files:'
-            if files.empty?
-              puts '- none'
-            else
-              files.each { |file| puts "- #{file}" }
-            end
-          end
-
-          def print_unsafe_change_ratio
-            puts
-            puts "Unsafe change ratio: #{format('%.1f', analyzer.unsafe_change_ratio)}"
-          end
-
-          def print_risk_level
-            puts
-            puts "Risk level: #{analyzer.risk_level}"
-          end
-
-          def print_risk_reasons
-            puts
-            puts 'Risk reasons:'
-            reasons = analyzer.risk_reasons
-            if reasons.empty?
-              puts '- none'
-            else
-              reasons.each { |reason| puts "- #{reason}" }
-            end
-          end
-
-          def print_high_risk_files
-            files = analyzer.high_risk_files
-
-            puts
-            puts 'High risk files:'
-            if files.empty?
-              puts '- none'
-            else
-              files.each { |file| puts "- #{file}" }
-            end
           end
 
           def json?
