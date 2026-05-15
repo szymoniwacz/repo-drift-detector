@@ -29,6 +29,7 @@ module Repo
             print_large_change_files
             print_documentation_files
             print_test_files
+            print_production_files
             print_high_risk_files
             print_risk_level
           end
@@ -100,6 +101,18 @@ module Repo
 
             puts
             puts 'Test files:'
+            if files.empty?
+              puts '- none'
+            else
+              files.each { |file| puts "- #{file}" }
+            end
+          end
+
+          def print_production_files
+            files = analyzer.production_files
+
+            puts
+            puts 'Production files:'
             if files.empty?
               puts '- none'
             else

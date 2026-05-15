@@ -206,6 +206,82 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     end
   end
 
+  describe '#production_files' do
+    it 'includes code files and excludes test files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/code.rb', 'spec/code_spec.rb'])
+      allow(analyzer).to receive(:documentation_files).and_return([])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb'])
+
+      prod_files = analyzer.production_files
+      expect(prod_files).to include('lib/code.rb')
+      expect(prod_files).not_to include('spec/code_spec.rb')
+    end
+
+    it 'includes code files and excludes documentation files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/code.rb', 'README.md'])
+      allow(analyzer).to receive(:documentation_files).and_return(['README.md'])
+      allow(analyzer).to receive(:test_files).and_return([])
+
+      prod_files = analyzer.production_files
+      expect(prod_files).to include('lib/code.rb')
+      expect(prod_files).not_to include('README.md')
+    end
+
+    it 'excludes both test and documentation files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([
+                                                              'lib/code.rb',
+                                                              'spec/code_spec.rb',
+                                                              'README.md'
+                                                            ])
+      allow(analyzer).to receive(:documentation_files).and_return(['README.md'])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb'])
+
+      prod_files = analyzer.production_files
+      expect(prod_files.count).to eq(1)
+      expect(prod_files).to include('lib/code.rb')
+    end
+
+    it 'returns empty array when all files are test or doc' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['spec/code_spec.rb', 'README.md'])
+      allow(analyzer).to receive(:documentation_files).and_return(['README.md'])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb'])
+
+      prod_files = analyzer.production_files
+      expect(prod_files).to be_empty
+    end
+
+    it 'returns empty array when no files changed' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([])
+      allow(analyzer).to receive(:documentation_files).and_return([])
+      allow(analyzer).to receive(:test_files).and_return([])
+
+      prod_files = analyzer.production_files
+      expect(prod_files).to be_empty
+    end
+
+    it 'handles multiple production files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([
+                                                              'lib/main.rb',
+                                                              'lib/helper.rb',
+                                                              'lib/utils.rb',
+                                                              'spec/code_spec.rb',
+                                                              'README.md'
+                                                            ])
+      allow(analyzer).to receive(:documentation_files).and_return(['README.md'])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb'])
+
+      prod_files = analyzer.production_files
+      expect(prod_files.count).to eq(3)
+      expect(prod_files).to include('lib/main.rb', 'lib/helper.rb', 'lib/utils.rb')
+    end
+  end
+
   describe '#changed_file_stats' do
     it 'parses git diff --numstat output' do
       output = "10\t5\tfile1.rb\n20\t10\tfile2.rb"

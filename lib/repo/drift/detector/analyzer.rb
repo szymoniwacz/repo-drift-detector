@@ -33,6 +33,10 @@ module Repo
           end
         end
 
+        def production_files
+          changed_files - documentation_files - test_files
+        end
+
         def changed_file_stats
           `git diff --numstat #{@base}`.split("\n").map do |line|
             added, removed, file = line.split("\t")

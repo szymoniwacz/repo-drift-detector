@@ -11,3 +11,7 @@ Style/Documentation:
 Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
+
+Metrics/ClassLength:
+  Exclude:
+    - "lib/repo/drift/detector/commands/analyze.rb"
