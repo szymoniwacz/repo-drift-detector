@@ -282,6 +282,70 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     end
   end
 
+  describe '#unsafe_change_ratio' do
+    it 'returns 0.0 when there are no production files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return([])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb'])
+
+      expect(analyzer.unsafe_change_ratio).to eq(0.0)
+    end
+
+    it 'returns prod_count when there are no test files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return(['lib/code.rb', 'lib/helper.rb'])
+      allow(analyzer).to receive(:test_files).and_return([])
+
+      expect(analyzer.unsafe_change_ratio).to eq(2.0)
+    end
+
+    it 'returns ratio when both production and test files exist' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return(['lib/code.rb'])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb', 'spec/helper_spec.rb'])
+
+      expect(analyzer.unsafe_change_ratio).to eq(0.5)
+    end
+
+    it 'handles equal production and test file counts' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return(['lib/code.rb', 'lib/helper.rb'])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb', 'spec/helper_spec.rb'])
+
+      expect(analyzer.unsafe_change_ratio).to eq(1.0)
+    end
+
+    it 'handles more production files than test files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return([
+                                                                 'lib/code.rb',
+                                                                 'lib/helper.rb',
+                                                                 'lib/utils.rb'
+                                                               ])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb'])
+
+      expect(analyzer.unsafe_change_ratio).to eq(3.0)
+    end
+
+    it 'returns ratio as float' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return(['lib/code.rb', 'lib/helper.rb', 'lib/utils.rb'])
+      allow(analyzer).to receive(:test_files).and_return(['spec/code_spec.rb', 'spec/helper_spec.rb'])
+
+      ratio = analyzer.unsafe_change_ratio
+      expect(ratio).to be_a(Float)
+      expect(ratio).to eq(1.5)
+    end
+
+    it 'returns 0.0 when both production and test files are empty' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:production_files).and_return([])
+      allow(analyzer).to receive(:test_files).and_return([])
+
+      expect(analyzer.unsafe_change_ratio).to eq(0.0)
+    end
+  end
+
   describe '#changed_file_stats' do
     it 'parses git diff --numstat output' do
       output = "10\t5\tfile1.rb\n20\t10\tfile2.rb"

@@ -37,6 +37,14 @@ module Repo
           changed_files - documentation_files - test_files
         end
 
+        def unsafe_change_ratio
+          prod_count = production_files.count
+          return 0.0 if prod_count.zero?
+
+          test_count = test_files.count
+          prod_count.to_f / [test_count, 1].max
+        end
+
         def changed_file_stats
           `git diff --numstat #{@base}`.split("\n").map do |line|
             added, removed, file = line.split("\t")

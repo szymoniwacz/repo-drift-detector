@@ -30,6 +30,7 @@ module Repo
             print_documentation_files
             print_test_files
             print_production_files
+            print_unsafe_change_ratio
             print_high_risk_files
             print_risk_level
           end
@@ -118,6 +119,11 @@ module Repo
             else
               files.each { |file| puts "- #{file}" }
             end
+          end
+
+          def print_unsafe_change_ratio
+            puts
+            puts "Unsafe change ratio: #{format('%.1f', analyzer.unsafe_change_ratio)}"
           end
 
           def print_risk_level
