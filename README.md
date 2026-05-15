@@ -32,10 +32,14 @@ Locally (aligns with GitHub Actions):
 mise exec -- bundle install
 mise exec -- bundle exec rspec
 mise exec -- bundle exec rubocop
-mise exec -- bundle exec exe/repo-drift-detector analyze --base origin/main --format json --fail-on high
+mise exec -- bundle exec exe/repo-drift-detector analyze --base origin/main --format json --output drift-report.json
 ```
 
-The **CI** workflow runs on pull requests and on pushes to `main`: it sets up Ruby with mise, runs RSpec and RuboCop, then runs `analyze` with **`--format json`** so the log is a machine-readable report (risk level, `risk_reasons`, and change metrics). **`--fail-on high`** fails the job when the tool reports high risk, so drift stays visible in PR checks.
+The **CI** workflow runs on pull requests and on pushes to `main`: it sets up Ruby with mise, runs RSpec and RuboCop, then runs `analyze` with **`--format json`** and **`--output drift-report.json`** so the run produces a machine-readable report (risk level, `risk_reasons`, and change metrics). The job does not gate merges on drift severity today; the report is for visibility.
+
+### Drift report artifact
+
+Each workflow run uploads **`drift-report.json`** as a GitHub Actions artifact named **`repo-drift-report`**. The file is JSON you can parse programmatically (metrics, risk tier, reasons). That format is a good fit for later tooling—for example dashboards, custom policies, or AI-assisted summaries—without changing how the CLI works today.
 
 ## Development
 
