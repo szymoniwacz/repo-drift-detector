@@ -66,15 +66,18 @@ module Repo
 
         def risk_level
           total_changes = changed_file_stats.sum { |stat| stat[:total_changes] }
+          ratio = unsafe_change_ratio
+          has_high_risk = !high_risk_files.empty?
 
-          case total_changes
-          when 0..20
-            :low
-          when 21..100
-            :medium
-          else
-            :high
-          end
+          # High risk conditions
+          return :high if total_changes > 100
+          return :high if ratio >= 3.0
+
+          # Medium risk conditions
+          return :medium if total_changes > 20
+          return :medium if has_high_risk
+
+          :low
         end
 
         def high_risk_files

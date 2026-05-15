@@ -552,16 +552,20 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
                                                                    { file: 'file.rb', added: 0, removed: 0,
                                                                      total_changes: 0 }
                                                                  ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:low)
     end
 
-    it 'returns :low for 20 total changes' do
+    it 'returns :low for 20 total changes with no other risk factors' do
       analyzer = described_class.new(base: 'main')
       allow(analyzer).to receive(:changed_file_stats).and_return([
                                                                    { file: 'file.rb', added: 10, removed: 10,
                                                                      total_changes: 20 }
                                                                  ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:low)
     end
@@ -572,6 +576,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
                                                                    { file: 'file.rb', added: 15, removed: 6,
                                                                      total_changes: 21 }
                                                                  ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:medium)
     end
@@ -582,6 +588,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
                                                                    { file: 'file1.rb', added: 60, removed: 40,
                                                                      total_changes: 100 }
                                                                  ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:medium)
     end
@@ -592,6 +600,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
                                                                    { file: 'file1.rb', added: 60, removed: 50,
                                                                      total_changes: 110 }
                                                                  ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:high)
     end
@@ -602,6 +612,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
                                                                    { file: 'large_file.rb', added: 500, removed: 500,
                                                                      total_changes: 1000 }
                                                                  ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:high)
     end
@@ -609,6 +621,68 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     it 'returns :low when no changes' do
       analyzer = described_class.new(base: 'main')
       allow(analyzer).to receive(:changed_file_stats).and_return([])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_level).to eq(:low)
+    end
+
+    it 'returns :high when unsafe_change_ratio >= 3.0' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(3.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_level).to eq(:high)
+    end
+
+    it 'returns :high when unsafe_change_ratio > 3.0' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(5.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_level).to eq(:high)
+    end
+
+    it 'returns :medium when unsafe_change_ratio < 3.0 and changes > 20' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 15, removed: 6,
+                                                                     total_changes: 21 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(1.5)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_level).to eq(:medium)
+    end
+
+    it 'returns :medium when high_risk_files exist' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'lib/analyzer.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return(['lib/analyzer.rb'])
+
+      expect(analyzer.risk_level).to eq(:medium)
+    end
+
+    it 'returns :low when changes <= 20 and no high risk files and ratio < 3.0' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 8, removed: 2,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.5)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
 
       expect(analyzer.risk_level).to eq(:low)
     end
