@@ -121,6 +121,91 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     end
   end
 
+  describe '#test_files' do
+    it 'detects files starting with spec/' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['spec/code_spec.rb', 'lib/code.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to include('spec/code_spec.rb')
+      expect(test_files).not_to include('lib/code.rb')
+    end
+
+    it 'detects files containing /spec/' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/spec/helper_spec.rb', 'lib/code.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to include('lib/spec/helper_spec.rb')
+      expect(test_files).not_to include('lib/code.rb')
+    end
+
+    it 'detects files starting with test/' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['test/code_test.rb', 'lib/code.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to include('test/code_test.rb')
+      expect(test_files).not_to include('lib/code.rb')
+    end
+
+    it 'detects files ending with _spec.rb' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['helper_spec.rb', 'lib/code.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to include('helper_spec.rb')
+      expect(test_files).not_to include('lib/code.rb')
+    end
+
+    it 'returns empty array when there are no test files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/code.rb', 'lib/helper.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to be_empty
+    end
+
+    it 'handles multiple test files mixed with code files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([
+                                                              'spec/code_spec.rb',
+                                                              'lib/main.rb',
+                                                              'test/helper_test.rb',
+                                                              'lib/helper.rb',
+                                                              'helper_spec.rb'
+                                                            ])
+
+      test_files = analyzer.test_files
+      expect(test_files.count).to eq(3)
+      expect(test_files).to include('spec/code_spec.rb', 'test/helper_test.rb', 'helper_spec.rb')
+    end
+
+    it 'returns empty array when no files changed' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([])
+
+      test_files = analyzer.test_files
+      expect(test_files).to be_empty
+    end
+
+    it 'detects deeply nested spec files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/api/spec/endpoint_spec.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to include('lib/api/spec/endpoint_spec.rb')
+    end
+
+    it 'does not match _spec.rb in middle of filename' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['lib/spec_helper_code.rb'])
+
+      test_files = analyzer.test_files
+      expect(test_files).to be_empty
+    end
+  end
+
   describe '#changed_file_stats' do
     it 'parses git diff --numstat output' do
       output = "10\t5\tfile1.rb\n20\t10\tfile2.rb"

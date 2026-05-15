@@ -15,19 +15,23 @@ module Repo
             puts 'Analyzing repository drift...'
             puts "Goal: #{goal}"
             puts "Base: #{base}"
-
-            print_changed_file_count
-            print_changed_files
-            print_change_stats
-            print_large_change_files
-            print_documentation_files
-            print_high_risk_files
-            print_risk_level
+            print_analysis
           end
 
           private
 
           attr_reader :argv
+
+          def print_analysis
+            print_changed_file_count
+            print_changed_files
+            print_change_stats
+            print_large_change_files
+            print_documentation_files
+            print_test_files
+            print_high_risk_files
+            print_risk_level
+          end
 
           def goal
             option_value('--goal')
@@ -84,6 +88,18 @@ module Repo
 
             puts
             puts 'Documentation files:'
+            if files.empty?
+              puts '- none'
+            else
+              files.each { |file| puts "- #{file}" }
+            end
+          end
+
+          def print_test_files
+            files = analyzer.test_files
+
+            puts
+            puts 'Test files:'
             if files.empty?
               puts '- none'
             else

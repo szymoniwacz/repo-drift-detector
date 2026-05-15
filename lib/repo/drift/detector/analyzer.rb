@@ -24,6 +24,15 @@ module Repo
           end
         end
 
+        def test_files
+          changed_files.select do |file|
+            file.start_with?('spec/') ||
+              file.include?('/spec/') ||
+              file.start_with?('test/') ||
+              file.end_with?('_spec.rb')
+          end
+        end
+
         def changed_file_stats
           `git diff --numstat #{@base}`.split("\n").map do |line|
             added, removed, file = line.split("\t")
