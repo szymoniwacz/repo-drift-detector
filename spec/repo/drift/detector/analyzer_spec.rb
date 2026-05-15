@@ -508,11 +508,12 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
 
       high_risk = analyzer.high_risk_files
       expect(high_risk).to include('analyzer.rb')
+      expect(high_risk).not_to include('spec/helper_spec.rb')
     end
 
     it 'ignores unrelated files' do
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_files).and_return(['README.md', 'config.yaml', 'spec/helper.rb'])
+      allow(analyzer).to receive(:changed_files).and_return(['README.md', 'config.yaml', 'spec/helper_spec.rb'])
 
       high_risk = analyzer.high_risk_files
       expect(high_risk).to be_empty
@@ -534,6 +535,32 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
 
       high_risk = analyzer.high_risk_files
       expect(high_risk).to be_empty
+    end
+
+    it 'does not count test files as high risk' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([
+        'lib/repo/drift/detector/analyzer.rb',
+        'lib/repo/drift/detector/commands/analyze.rb',
+        'spec/repo/drift/detector/analyzer_spec.rb'
+      ])
+
+      high_risk = analyzer.high_risk_files
+      expect(high_risk).to include('lib/repo/drift/detector/analyzer.rb',
+                                   'lib/repo/drift/detector/commands/analyze.rb')
+      expect(high_risk).not_to include('spec/repo/drift/detector/analyzer_spec.rb')
+    end
+
+    it 'does not count documentation files as high risk' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([
+        'docs/analyzer_guide.md',
+        'lib/repo/drift/detector/commands/analyze.rb'
+      ])
+
+      high_risk = analyzer.high_risk_files
+      expect(high_risk).to include('lib/repo/drift/detector/commands/analyze.rb')
+      expect(high_risk).not_to include('docs/analyzer_guide.md')
     end
 
     it 'returns empty array when there are no high-risk files' do

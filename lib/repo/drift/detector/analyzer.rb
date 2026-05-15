@@ -81,7 +81,7 @@ module Repo
         end
 
         def high_risk_files
-          changed_files.select do |file|
+          production_files.select do |file|
             file.include?('cli') ||
               file.include?('commands') ||
               file.include?('analyzer')
