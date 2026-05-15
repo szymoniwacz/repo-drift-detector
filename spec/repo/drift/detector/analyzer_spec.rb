@@ -714,4 +714,161 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
       expect(analyzer.risk_level).to eq(:low)
     end
   end
+
+  describe '#risk_reasons' do
+    it 'returns empty array for low risk' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 10, removed: 10,
+                                                                     total_changes: 20 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq([])
+    end
+
+    it 'returns medium reasons for total_changes_above_20 only' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 15, removed: 6,
+                                                                     total_changes: 21 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(1.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(['total_changes_above_20'])
+    end
+
+    it 'returns medium reasons for high_risk_files_detected only' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'lib/analyzer.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return(['lib/analyzer.rb'])
+
+      expect(analyzer.risk_reasons).to eq(['high_risk_files_detected'])
+    end
+
+    it 'returns high reasons including total_changes_above_100' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file1.rb', added: 60, removed: 50,
+                                                                     total_changes: 110 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(
+        %w[total_changes_above_100 total_changes_above_20]
+      )
+    end
+
+    it 'returns high reasons for unsafe_change_ratio_above_threshold' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(3.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(['unsafe_change_ratio_above_threshold'])
+    end
+
+    it 'lists multiple reasons when several conditions match' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'lib/commands/foo.rb', added: 80, removed: 80,
+                                                                     total_changes: 160 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(4.0)
+      allow(analyzer).to receive(:high_risk_files).and_return(['lib/commands/foo.rb'])
+
+      expect(analyzer.risk_reasons).to eq(
+        %w[
+          total_changes_above_100
+          unsafe_change_ratio_above_threshold
+          total_changes_above_20
+          high_risk_files_detected
+        ]
+      )
+    end
+
+    it 'does not include total_changes_above_20 at exactly 20 changes boundary' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 20, removed: 0,
+                                                                     total_changes: 20 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq([])
+    end
+
+    it 'includes total_changes_above_20 just above 20 changes boundary' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 21, removed: 0,
+                                                                     total_changes: 21 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(['total_changes_above_20'])
+    end
+
+    it 'does not include total_changes_above_100 at exactly 100 total changes boundary' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 100, removed: 0,
+                                                                     total_changes: 100 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(['total_changes_above_20'])
+    end
+
+    it 'includes total_changes_above_100 just above 100 total changes boundary' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 101, removed: 0,
+                                                                     total_changes: 101 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(0.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(
+        %w[total_changes_above_100 total_changes_above_20]
+      )
+    end
+
+    it 'does not include unsafe_change_ratio reason below threshold boundary' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(2.999)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq([])
+    end
+
+    it 'includes unsafe_change_ratio reason at threshold boundary' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_file_stats).and_return([
+                                                                   { file: 'file.rb', added: 5, removed: 5,
+                                                                     total_changes: 10 }
+                                                                 ])
+      allow(analyzer).to receive(:unsafe_change_ratio).and_return(3.0)
+      allow(analyzer).to receive(:high_risk_files).and_return([])
+
+      expect(analyzer.risk_reasons).to eq(['unsafe_change_ratio_above_threshold'])
+    end
+  end
 end

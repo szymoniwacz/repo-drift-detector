@@ -48,11 +48,15 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
 
       output = capture_output { command.call }
 
       expect(output).to include('Change stats:')
       expect(output).to include('config.rb (+5/-2) total=7')
+      expect(output).to include('Risk reasons:')
+      expect(output).to match(/Risk reasons:\s*\n- none/m)
     end
 
     it 'prints large changes' do
@@ -72,11 +76,15 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:high)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(%w[total_changes_above_100 total_changes_above_20])
 
       output = capture_output { command.call }
 
       expect(output).to include('Large changes:')
       expect(output).to include('large.rb total=150')
+      expect(output).to include('- total_changes_above_100')
+      expect(output).to include('- total_changes_above_20')
     end
 
     it 'prints high risk files' do
@@ -93,6 +101,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return(['analyzer.rb'])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
 
       output = capture_output { command.call }
 
@@ -114,10 +124,38 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:medium)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(['total_changes_above_20'])
 
       output = capture_output { command.call }
 
       expect(output).to include('Risk level: medium')
+      expect(output).to include('Risk reasons:')
+      expect(output).to include('- total_changes_above_20')
+    end
+
+    it 'prints multiple risk reasons on separate lines in text output' do
+      argv = ['--goal', 'feature', '--base', 'main']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:high)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(%w[high_risk_files_detected total_changes_above_20])
+
+      output = capture_output { command.call }
+
+      expect(output).to include('Risk reasons:')
+      expect(output).to include('- high_risk_files_detected')
+      expect(output).to include('- total_changes_above_20')
     end
 
     it 'outputs valid JSON when format json is requested' do
@@ -149,6 +187,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return(['file2.rb'])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:medium)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(%w[high_risk_files_detected total_changes_above_20])
 
       output = capture_output { command.call }
       json = JSON.parse(output)
@@ -160,11 +200,44 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         'changed_files' => ['file1.rb', 'file2.rb'],
         'unsafe_change_ratio' => 2.0,
         'high_risk_files' => ['file2.rb'],
-        'risk_level' => 'medium'
+        'risk_level' => 'medium',
+        'risk_reasons' => %w[high_risk_files_detected total_changes_above_20]
       )
       expect(output).not_to include('Goal:')
       expect(output).not_to include('Changed files:')
       expect(output).not_to include('High risk files:')
+    end
+
+    it 'includes risk_reasons as empty array in JSON for low risk' do
+      argv = ['--goal', 'feature', '--base', 'main', '--format', 'json']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_count).and_return(0)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:documentation_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:test_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:production_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:unsafe_change_ratio).and_return(0.0)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
+
+      output = capture_output { command.call }
+
+      expect(JSON.parse(output)['risk_reasons']).to eq([])
     end
 
     it 'handles no changed files cleanly' do
@@ -181,6 +254,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
 
       output = capture_output { command.call }
 
@@ -189,6 +264,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       expect(output).to include('- none')
       expect(output).to include('High risk files:')
       expect(output).to include('Risk level: low')
+      expect(output).to include('Risk reasons:')
+      expect(output).to match(/Risk reasons:\s*\n- none/m)
     end
 
     it 'prints analyzer message at start' do
@@ -205,6 +282,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
 
       output = capture_output { command.call }
 
@@ -225,6 +304,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
 
       expect { command.call }.not_to raise_error
     end
@@ -243,6 +324,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:high)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(['unsafe_change_ratio_above_threshold'])
 
       expect { capture_output { command.call } }.to raise_error(SystemExit) do |error|
         expect(error.status).to eq(1)
@@ -263,6 +346,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:medium)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(['total_changes_above_20'])
 
       expect { command.call }.not_to raise_error
     end
@@ -281,6 +366,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:medium)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(['total_changes_above_20'])
 
       expect { capture_output { command.call } }.to raise_error(SystemExit) do |error|
         expect(error.status).to eq(1)
@@ -301,6 +388,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
 
       expect { command.call }.not_to raise_error
     end
@@ -343,6 +432,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         .to receive(:high_risk_files).and_return([])
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:medium)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return(['total_changes_above_20'])
 
       stdout, stderr = capture_output_and_error do
         expect { command.call }.to raise_error(SystemExit) do |error|
@@ -352,6 +443,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
 
       parsed = JSON.parse(stdout)
       expect(parsed['risk_level']).to eq('medium')
+      expect(parsed['risk_reasons']).to eq(['total_changes_above_20'])
       expect(stderr).to be_empty
     end
   end

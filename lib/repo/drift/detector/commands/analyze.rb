@@ -19,7 +19,8 @@ module Repo
             production_files: :production_files,
             unsafe_change_ratio: :unsafe_change_ratio,
             high_risk_files: :high_risk_files,
-            risk_level: :risk_level
+            risk_level: :risk_level,
+            risk_reasons: :risk_reasons
           }.freeze
 
           FAIL_ON_LEVELS = {
@@ -60,8 +61,13 @@ module Repo
             print_test_files
             print_production_files
             print_unsafe_change_ratio
+            print_risk_summary
+          end
+
+          def print_risk_summary
             print_high_risk_files
             print_risk_level
+            print_risk_reasons
           end
 
           def goal
@@ -158,6 +164,17 @@ module Repo
           def print_risk_level
             puts
             puts "Risk level: #{analyzer.risk_level}"
+          end
+
+          def print_risk_reasons
+            puts
+            puts 'Risk reasons:'
+            reasons = analyzer.risk_reasons
+            if reasons.empty?
+              puts '- none'
+            else
+              reasons.each { |reason| puts "- #{reason}" }
+            end
           end
 
           def print_high_risk_files
