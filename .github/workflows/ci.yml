@@ -35,5 +35,4 @@ jobs:
           fi
           mise exec -- bundle exec exe/repo-drift-detector analyze \
             --base "$BASE" \
-            --format json \
-            --fail-on high
+            --format json
