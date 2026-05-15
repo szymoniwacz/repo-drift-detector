@@ -16,6 +16,7 @@ module Repo
             puts "Goal: #{goal}"
             puts "Base: #{base}"
 
+            print_changed_file_count
             print_changed_files
             print_change_stats
             print_large_change_files
@@ -42,6 +43,11 @@ module Repo
           def option_value(name)
             index = argv.index(name)
             argv[index + 1] if index
+          end
+
+          def print_changed_file_count
+            puts
+            puts "Changed file count: #{analyzer.changed_file_count}"
           end
 
           def print_changed_files

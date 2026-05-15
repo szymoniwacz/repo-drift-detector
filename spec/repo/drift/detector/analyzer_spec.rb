@@ -22,6 +22,29 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     end
   end
 
+  describe '#changed_file_count' do
+    it 'returns the count of changed files' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['file1.rb', 'file2.rb', 'file3.rb'])
+
+      expect(analyzer.changed_file_count).to eq(3)
+    end
+
+    it 'returns 0 when no files changed' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return([])
+
+      expect(analyzer.changed_file_count).to eq(0)
+    end
+
+    it 'returns 1 for a single changed file' do
+      analyzer = described_class.new(base: 'main')
+      allow(analyzer).to receive(:changed_files).and_return(['single.rb'])
+
+      expect(analyzer.changed_file_count).to eq(1)
+    end
+  end
+
   describe '#changed_file_stats' do
     it 'parses git diff --numstat output' do
       output = "10\t5\tfile1.rb\n20\t10\tfile2.rb"

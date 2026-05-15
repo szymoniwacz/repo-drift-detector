@@ -12,6 +12,10 @@ module Repo
           `git diff --name-only #{@base}`.split("\n")
         end
 
+        def changed_file_count
+          changed_files.count
+        end
+
         def changed_file_stats
           `git diff --numstat #{@base}`.split("\n").map do |line|
             added, removed, file = line.split("\t")
