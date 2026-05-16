@@ -22,7 +22,8 @@ module Repo
             unsafe_change_ratio: :unsafe_change_ratio,
             high_risk_files: :high_risk_files,
             risk_level: :risk_level,
-            risk_reasons: :risk_reasons
+            risk_reasons: :risk_reasons,
+            risk_score: :risk_score
           }.freeze
 
           FAIL_ON_LEVELS = {

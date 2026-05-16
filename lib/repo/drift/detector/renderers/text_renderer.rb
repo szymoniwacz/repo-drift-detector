@@ -47,6 +47,7 @@ module Repo
           def write_risk_summary
             PrintHyphenList.call('High risk files', analyzer.high_risk_files, out)
             write_risk_level
+            write_risk_score
             PrintHyphenList.call('Risk reasons', risk_reason_lines, out)
           end
 
@@ -91,6 +92,10 @@ module Repo
           def write_risk_level
             out.puts
             out.puts "Risk level: #{analyzer.risk_level}"
+          end
+
+          def write_risk_score
+            out.puts "Risk score: #{analyzer.risk_score}"
           end
 
           module PrintHyphenList
