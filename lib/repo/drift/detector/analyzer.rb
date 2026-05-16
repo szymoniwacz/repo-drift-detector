@@ -76,6 +76,10 @@ module Repo
           risk_evaluator.risk_reasons
         end
 
+        def risk_score
+          risk_evaluator.risk_score
+        end
+
         def high_risk_files
           production_files.select do |file|
             file.include?('cli') ||

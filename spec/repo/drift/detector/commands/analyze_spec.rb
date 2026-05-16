@@ -132,6 +132,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       output = capture_output { command.call }
 
       expect(output).to include('Risk level: medium')
+      expect(output).to include('Risk score:')
       expect(output).to include('Risk reasons:')
       expect(output).to include('- total_changes_above_20')
     end
@@ -203,7 +204,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         'unsafe_change_ratio' => 2.0,
         'high_risk_files' => ['file2.rb'],
         'risk_level' => 'medium',
-        'risk_reasons' => %w[high_risk_files_detected total_changes_above_20]
+        'risk_reasons' => %w[high_risk_files_detected total_changes_above_20],
+        'risk_score' => 27
       )
       expect(output.chomp).to eq(JSON.pretty_generate(json))
       expect(output.lines.size).to be > 1
@@ -631,6 +633,101 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         expect(JSON.parse(File.read(out_file))['risk_level']).to eq('high')
         expect(stdout).to eq("Analysis written to #{out_file}\n")
         expect(stderr).to be_empty
+      end
+    end
+
+    it 'includes risk_score in text output' do
+      argv = ['--goal', 'feature', '--base', 'main']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_score).and_return(0)
+
+      output = capture_output { command.call }
+
+      expect(output).to include('Risk score: 0')
+    end
+
+    it 'includes risk_score in JSON output' do
+      argv = ['--goal', 'feature', '--base', 'main', '--format', 'json']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_count).and_return(0)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:documentation_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:test_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:production_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:unsafe_change_ratio).and_return(0.0)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_score).and_return(12)
+
+      output = capture_output { command.call }
+
+      expect(JSON.parse(output)['risk_score']).to eq(12)
+    end
+
+    it 'includes risk_score in --output JSON report' do
+      Dir.mktmpdir do |dir|
+        out_file = File.join(dir, 'drift-report.json')
+        argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--output', out_file]
+        command = described_class.new(argv)
+
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_count).and_return(1)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_files).and_return(['file1.rb'])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:changed_file_stats).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:large_change_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:documentation_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:test_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:production_files).and_return(['file1.rb'])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:unsafe_change_ratio).and_return(0.0)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:high_risk_files).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_level).and_return(:low)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_reasons).and_return([])
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_score).and_return(42)
+
+        capture_output { command.call }
+
+        expect(JSON.parse(File.read(out_file))['risk_score']).to eq(42)
       end
     end
   end
