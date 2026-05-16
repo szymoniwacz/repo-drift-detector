@@ -72,6 +72,10 @@ module Repo
           risk_evaluator.risk_level
         end
 
+        def risk_score
+          risk_evaluator.risk_score
+        end
+
         def risk_reasons
           risk_evaluator.risk_reasons
         end

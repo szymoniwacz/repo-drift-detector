@@ -127,10 +127,13 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_level).and_return(:medium)
       allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_score).and_return(45)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
         .to receive(:risk_reasons).and_return(['total_changes_above_20'])
 
       output = capture_output { command.call }
 
+      expect(output).to include('Risk score: 45')
       expect(output).to include('Risk level: medium')
       expect(output).to include('Risk reasons:')
       expect(output).to include('- total_changes_above_20')
@@ -203,6 +206,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         'unsafe_change_ratio' => 2.0,
         'high_risk_files' => ['file2.rb'],
         'risk_level' => 'medium',
+        'risk_score' => 35,
         'risk_reasons' => %w[high_risk_files_detected total_changes_above_20]
       )
       expect(output.chomp).to eq(JSON.pretty_generate(json))
@@ -498,6 +502,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         expect(written).to include('Analyzing repository drift...')
         expect(written).to include('Goal: feature')
         expect(written).to include('Base: main')
+        expect(written).to include('Risk score: 0')
         expect(written).to include('Risk level: low')
         expect(stdout).to eq("Analysis written to #{out_file}\n")
       end
@@ -530,6 +535,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         allow_any_instance_of(Repo::Drift::Detector::Analyzer)
           .to receive(:risk_level).and_return(:low)
         allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+          .to receive(:risk_score).and_return(0)
+        allow_any_instance_of(Repo::Drift::Detector::Analyzer)
           .to receive(:risk_reasons).and_return([])
 
         stdout = capture_output { command.call }
@@ -539,6 +546,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         expect(parsed['goal']).to eq('feature')
         expect(parsed['base']).to eq('main')
         expect(parsed['risk_level']).to eq('low')
+        expect(parsed['risk_score']).to eq(0)
         expect(file_body.chomp).to eq(JSON.pretty_generate(parsed))
         expect(file_body.lines.size).to be > 1
         expect(stdout).to eq("Analysis written to #{out_file}\n")

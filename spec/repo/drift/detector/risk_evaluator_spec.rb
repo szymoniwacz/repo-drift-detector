@@ -101,10 +101,86 @@ RSpec.describe Repo::Drift::Detector::RiskEvaluator do
         2.5,
         []
       )
+      allow(signals).to receive(:large_change_files).and_return([])
       ev = described_class.new(signals, cfg)
 
       expect(ev.risk_level).to eq(:high)
       expect(ev.risk_reasons).to eq(['unsafe_change_ratio_above_threshold'])
+    end
+
+    it 'returns 0 risk score when no changes are present' do
+      signals = signals_class.new([], 0.0, [])
+      allow(signals).to receive(:large_change_files).and_return([])
+      ev = described_class.new(signals, default_config)
+
+      expect(ev.risk_score).to eq(0)
+    end
+
+    it 'increases risk score as total changes grow' do
+      signals = signals_class.new(
+        [{ file: 'f.rb', added: 60, removed: 30, total_changes: 90 }],
+        0.0,
+        []
+      )
+      allow(signals).to receive(:large_change_files).and_return([])
+      ev = described_class.new(signals, default_config)
+
+      expect(ev.risk_score).to be > 0
+      expect(ev.risk_score).to eq(36)
+    end
+
+    it 'increases risk score as unsafe change ratio grows' do
+      signals = signals_class.new(
+        [{ file: 'f.rb', added: 1, removed: 1, total_changes: 2 }],
+        1.5,
+        []
+      )
+      allow(signals).to receive(:large_change_files).and_return([])
+      ev = described_class.new(signals, default_config)
+
+      expect(ev.risk_score).to eq(12)
+    end
+
+    it 'increases risk score for high-risk files' do
+      signals = signals_class.new(
+        [{ file: 'f.rb', added: 1, removed: 0, total_changes: 1 }],
+        0.0,
+        ['lib/analyzer.rb', 'lib/commands/foo.rb']
+      )
+      allow(signals).to receive(:large_change_files).and_return([])
+      ev = described_class.new(signals, default_config)
+
+      expect(ev.risk_score).to eq(20)
+    end
+
+    it 'increases risk score for large changes count' do
+      signals = signals_class.new(
+        [{ file: 'f.rb', added: 20, removed: 5, total_changes: 25 }],
+        0.0,
+        []
+      )
+      allow(signals).to receive(:large_change_files).and_return([{ file: 'f.rb', added: 20, removed: 5, total_changes: 25 }])
+      ev = described_class.new(signals, default_config)
+
+      expect(ev.risk_score).to eq(18)
+    end
+
+    it 'caps risk score at 100' do
+      signals = signals_class.new(
+        [
+          { file: 'f1.rb', added: 1000, removed: 1000, total_changes: 2000 },
+          { file: 'f2.rb', added: 1000, removed: 1000, total_changes: 2000 }
+        ],
+        10.0,
+        ['lib/analyzer.rb', 'lib/commands/foo.rb', 'lib/commands/bar.rb']
+      )
+      allow(signals).to receive(:large_change_files).and_return([
+        { file: 'f1.rb', added: 1000, removed: 1000, total_changes: 2000 },
+        { file: 'f2.rb', added: 1000, removed: 1000, total_changes: 2000 }
+      ])
+      ev = described_class.new(signals, default_config)
+
+      expect(ev.risk_score).to eq(100)
     end
   end
 end
