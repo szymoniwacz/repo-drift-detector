@@ -2,9 +2,9 @@
 
 require 'spec_helper'
 require 'net/http'
-require 'repo/drift/detector/static_ai_interpreter'
-require 'repo/drift/detector/deterministic_interpreter'
-require 'repo/drift/detector/explanation_context'
+require 'repo/drift/detector/explanation/context'
+require 'repo/drift/detector/interpreters/deterministic_interpreter'
+require 'repo/drift/detector/interpreters/static_ai_interpreter'
 
 RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
   def high_risk_summary

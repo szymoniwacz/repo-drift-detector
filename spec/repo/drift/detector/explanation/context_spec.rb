@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'repo/drift/detector/explanation_context'
+require 'repo/drift/detector/explanation/context'
 
 RSpec.describe Repo::Drift::Detector::ExplanationContext do
   def low_risk_summary

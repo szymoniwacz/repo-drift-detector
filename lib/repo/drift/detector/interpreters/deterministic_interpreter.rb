@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'repo/drift/detector/explanation_interpreter'
-require 'repo/drift/detector/explanation_renderer'
+require 'repo/drift/detector/interpreters/explanation_interpreter'
+require 'repo/drift/detector/renderers/explanation_renderer'
 
 module Repo
   module Drift

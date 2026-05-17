@@ -2,8 +2,8 @@
 
 require 'spec_helper'
 require 'repo/drift/detector/commands/explain'
-require 'repo/drift/detector/deterministic_interpreter'
-require 'repo/drift/detector/static_ai_interpreter'
+require 'repo/drift/detector/interpreters/deterministic_interpreter'
+require 'repo/drift/detector/interpreters/static_ai_interpreter'
 require 'tmpdir'
 require 'stringio'
 require 'json'

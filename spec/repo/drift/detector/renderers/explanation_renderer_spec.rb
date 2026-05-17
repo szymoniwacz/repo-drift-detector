@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'repo/drift/detector/explanation_context'
-require 'repo/drift/detector/explanation_renderer'
+require 'repo/drift/detector/explanation/context'
+require 'repo/drift/detector/renderers/explanation_renderer'
 
 RSpec.describe Repo::Drift::Detector::ExplanationRenderer do
   def context_from(summary)

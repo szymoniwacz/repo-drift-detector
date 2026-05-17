@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'repo/drift/detector/explanation_context'
+require 'repo/drift/detector/explanation/context'
 
 module Repo
   module Drift

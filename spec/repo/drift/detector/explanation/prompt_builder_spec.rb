@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'repo/drift/detector/explanation_context'
-require 'repo/drift/detector/prompt_builder'
+require 'repo/drift/detector/explanation/context'
+require 'repo/drift/detector/explanation/prompt_builder'
 
 RSpec.describe Repo::Drift::Detector::PromptBuilder do
   def low_risk_context
