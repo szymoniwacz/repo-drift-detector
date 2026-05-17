@@ -4,10 +4,7 @@ require 'repo/drift/detector/explanation/comparison'
 require 'repo/drift/detector/explanation/context'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
 require 'repo/drift/detector/interpreters/static_ai_interpreter'
-require 'repo/drift/detector/renderers/comparison_markdown_renderer'
-require 'repo/drift/detector/renderers/comparison_text_renderer'
-require 'repo/drift/detector/renderers/explanation_markdown_renderer'
-require 'repo/drift/detector/renderers/json_renderer'
+require 'repo/drift/detector/renderers/output_renderer'
 require_relative 'commands/analysis_summary'
 
 module Repo
@@ -31,11 +28,7 @@ module Repo
         end
 
         def render
-          return render_comparison if compare?
-          return Renderers::JsonRenderer.new.render(report_payload) if json?
-          return render_single_markdown if markdown?
-
-          explanation_text
+          output_renderer.render
         end
 
         def report_payload
@@ -55,30 +48,20 @@ module Repo
           compare
         end
 
-        def json?
-          format == 'json'
-        end
-
-        def markdown?
-          format == 'markdown'
-        end
-
         def interpreter_name
           @interpreter_name ||= interpreter || DEFAULT_INTERPRETER
         end
 
-        def render_comparison
-          data = comparison_data
-          return Renderers::JsonRenderer.new.render(report_payload) if json?
-          return Renderers::ComparisonMarkdownRenderer.new.render(data) if markdown?
-
-          Renderers::ComparisonTextRenderer.new.render(data)
-        end
-
-        def render_single_markdown
-          Renderers::ExplanationMarkdownRenderer.new.render(
+        def output_renderer
+          Renderers::OutputRenderer.new(
+            format: format,
+            compare: compare?,
             interpreter_name: interpreter_name,
-            explanation: explanation_text
+            sources: {
+              report_payload: -> { report_payload },
+              comparison: -> { comparison_data },
+              explanation: -> { explanation_text }
+            }
           )
         end
 
