@@ -100,7 +100,9 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       output = capture_output { command.call }
 
       expect(output).to include('Assessed repository drift risk as high')
-      expect(output).to include('Signal brief:')
+      expect(output).to include('Taken together, the signals point to')
+      expect(output).not_to include('Signal brief:')
+      expect(output).not_to include('Explain repository risk based on these deterministic signals')
       expect(output).not_to include('Repository risk is elevated')
     end
 
@@ -112,7 +114,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       json = JSON.parse(output)
 
       expect(json['interpreter']).to eq('static-ai')
-      expect(json['explanation']).to include('Signal brief:')
+      expect(json['explanation']).to include('Assessed repository drift risk as high')
+      expect(json['explanation']).not_to include('Signal brief:')
     end
 
     it 'includes interpreter in --output JSON report for static-ai interpreter' do
@@ -243,6 +246,18 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
 
         expect(output).to start_with("## Explanation\n\n")
         expect(output).to include('Repository risk is elevated')
+      end
+
+      it 'renders static-ai explanation as markdown without prompt leakage' do
+        argv = ['--goal', 'feature', '--base', 'main', '--format', 'markdown', '--interpreter', 'static-ai']
+        command = described_class.new(argv)
+
+        output = capture_output { command.call }
+
+        expect(output).to start_with("## Static AI Explanation\n\n")
+        expect(output).to include('Assessed repository drift risk as high')
+        expect(output).not_to include('Signal brief:')
+        expect(output).not_to include('Do not invent architecture')
       end
     end
   end

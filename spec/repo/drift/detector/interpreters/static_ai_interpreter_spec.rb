@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'net/http'
 require 'repo/drift/detector/explanation/context'
+require 'repo/drift/detector/explanation/prompt_builder'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
 require 'repo/drift/detector/interpreters/static_ai_interpreter'
 
@@ -23,6 +24,18 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
 
   def high_risk_context
     Repo::Drift::Detector::ExplanationContext.new(high_risk_summary)
+  end
+
+  def forbidden_prompt_fragments
+    [
+      Repo::Drift::Detector::PromptBuilder::INTRO,
+      Repo::Drift::Detector::PromptBuilder::CONSTRAINT,
+      'Signal brief:',
+      'Signals:',
+      'Repository patterns:',
+      '- Risk level:',
+      '- Production-only change:'
+    ]
   end
 
   describe '#interpret' do
@@ -47,7 +60,7 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
       explanation = described_class.new.interpret(high_risk_context.to_h)
 
       expect(explanation).to include('risk score of 92')
-      expect(explanation).to include('Signal brief:')
+      expect(explanation).to include('The diff touches 8 file(s)')
     end
 
     it 'does not call network APIs' do
@@ -69,7 +82,7 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
       deterministic_output = Repo::Drift::Detector::DeterministicInterpreter.new.interpret(context)
 
       expect(static_output).not_to eq(deterministic_output)
-      expect(static_output).to include('Signal brief:')
+      expect(static_output).to include('Assessed repository drift risk as high')
       expect(deterministic_output).to include('Repository risk is elevated')
     end
 
@@ -81,20 +94,40 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
       expect(explanation).not_to match(/\bthe system (is|uses|implements)\b/i)
     end
 
-    it 'includes PromptBuilder signal output' do
+    it 'includes interpretive signal-grounded insights without prompt template text' do
       explanation = described_class.new.interpret(high_risk_context)
 
-      expect(explanation).to include('Explain repository risk based on these deterministic signals')
-      expect(explanation).to include('- Risk level: high')
-      expect(explanation).to include('- Production-only change: true')
+      expect(explanation).to include('Taken together, the signals point to high repository drift risk')
+      expect(explanation).to include('The unsafe change ratio of 4.5 suggests production-heavy change')
+      expect(explanation).to include('3 high-risk files in the change set may amplify review and drift risk')
     end
 
-    it 'omits the signal brief when signal_brief is false' do
+    it 'does not leak internal prompt instructions' do
+      explanation = described_class.new.interpret(high_risk_context)
+
+      forbidden_prompt_fragments.each do |fragment|
+        expect(explanation).not_to include(fragment)
+      end
+    end
+
+    it 'uses PromptBuilder internally without exposing its output' do
+      builder = instance_double(Repo::Drift::Detector::PromptBuilder, build: 'INTERNAL PROMPT TEXT')
+      allow(Repo::Drift::Detector::PromptBuilder).to receive(:new).and_return(builder)
+
+      explanation = described_class.new.interpret(high_risk_context)
+
+      expect(builder).to have_received(:build)
+      expect(explanation).not_to include('INTERNAL PROMPT TEXT')
+    end
+
+    it 'omits extended signal insights when signal_brief is false' do
       explanation = described_class.new.interpret(high_risk_context, signal_brief: false)
 
       expect(explanation).to include('Assessed repository drift risk as high')
-      expect(explanation).not_to include('Signal brief:')
-      expect(explanation).not_to include('Explain repository risk based on these deterministic signals')
+      expect(explanation).not_to include('Taken together, the signals point to')
+      forbidden_prompt_fragments.each do |fragment|
+        expect(explanation).not_to include(fragment)
+      end
     end
   end
 end

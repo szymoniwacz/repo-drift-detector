@@ -21,7 +21,8 @@ RSpec.describe Repo::Drift::Detector::ExplainRunner do
       output = build_runner(interpreter: 'static-ai').render
 
       expect(output).to include('Assessed repository drift risk as high')
-      expect(output).to include('Signal brief:')
+      expect(output).to include('Taken together, the signals point to')
+      expect(output).not_to include('Signal brief:')
       expect(output).not_to include('Repository risk is elevated')
     end
 
