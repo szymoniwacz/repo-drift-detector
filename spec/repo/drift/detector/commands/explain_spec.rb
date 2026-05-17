@@ -98,8 +98,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       expect(first).to eq(second)
     end
 
-    it 'uses StaticAiInterpreter when --interpreter ai is provided' do
-      argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'ai']
+    it 'uses StaticAiInterpreter when --interpreter static-ai is provided' do
+      argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'static-ai']
       command = described_class.new(argv)
 
       output = capture_output { command.call }
@@ -109,30 +109,44 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       expect(output).not_to include('Repository risk is elevated')
     end
 
-    it 'includes interpreter in JSON output for ai interpreter' do
-      argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--interpreter', 'ai']
+    it 'includes interpreter in JSON output for static-ai interpreter' do
+      argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--interpreter', 'static-ai']
       command = described_class.new(argv)
 
       output = capture_output { command.call }
       json = JSON.parse(output)
 
-      expect(json['interpreter']).to eq('ai')
+      expect(json['interpreter']).to eq('static-ai')
       expect(json['explanation']).to include('Signal brief:')
     end
 
-    it 'includes interpreter in --output JSON report for ai interpreter' do
+    it 'includes interpreter in --output JSON report for static-ai interpreter' do
       Dir.mktmpdir do |dir|
-        out_file = File.join(dir, 'explain-ai.json')
+        out_file = File.join(dir, 'explain-static-ai.json')
         argv = [
           '--goal', 'feature', '--base', 'main',
-          '--format', 'json', '--interpreter', 'ai', '--output', out_file
+          '--format', 'json', '--interpreter', 'static-ai', '--output', out_file
         ]
         command = described_class.new(argv)
 
         capture_output { command.call }
 
-        expect(JSON.parse(File.read(out_file))['interpreter']).to eq('ai')
+        expect(JSON.parse(File.read(out_file))['interpreter']).to eq('static-ai')
       end
+    end
+
+    it 'rejects --interpreter ai in favor of static-ai' do
+      argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'ai']
+      command = described_class.new(argv)
+
+      _stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(2)
+        end
+      end
+
+      expect(stderr).to include("Invalid --interpreter value 'ai'")
+      expect(stderr).to include('static-ai')
     end
 
     it 'exits 2 for invalid --interpreter values' do
@@ -146,7 +160,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       end
 
       expect(stderr).to include("Invalid --interpreter value 'openai'")
-      expect(stderr).to include('deterministic, ai')
+      expect(stderr).to include('deterministic, static-ai')
       expect(stdout).to be_empty
     end
 

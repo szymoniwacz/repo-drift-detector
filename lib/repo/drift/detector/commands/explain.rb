@@ -18,7 +18,7 @@ module Repo
 
           INTERPRETERS = {
             'deterministic' => DeterministicInterpreter,
-            'ai' => StaticAiInterpreter
+            'static-ai' => StaticAiInterpreter
           }.freeze
 
           def initialize(argv)
