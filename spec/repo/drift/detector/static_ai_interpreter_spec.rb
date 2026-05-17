@@ -88,5 +88,13 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
       expect(explanation).to include('- Risk level: high')
       expect(explanation).to include('- Production-only change: true')
     end
+
+    it 'omits the signal brief when signal_brief is false' do
+      explanation = described_class.new.interpret(high_risk_context, signal_brief: false)
+
+      expect(explanation).to include('Assessed repository drift risk as high')
+      expect(explanation).not_to include('Signal brief:')
+      expect(explanation).not_to include('Explain repository risk based on these deterministic signals')
+    end
   end
 end

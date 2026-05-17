@@ -3,11 +3,12 @@
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
 require 'repo/drift/detector/deterministic_interpreter'
+require 'repo/drift/detector/explanation_comparison'
 require 'repo/drift/detector/explanation_context'
 require 'repo/drift/detector/static_ai_interpreter'
-require 'repo/drift/detector/renderers/json_renderer'
 require_relative 'analysis_summary'
 require_relative 'explain/argument_validator'
+require_relative 'explain/content_renderer'
 
 module Repo
   module Drift
@@ -29,13 +30,7 @@ module Repo
             ArgumentValidator.new(argv).validate
             load_config!
 
-            content = if json?
-                        Renderers::JsonRenderer.new.render(report_payload)
-                      else
-                        explanation_text
-                      end
-
-            deliver_output(content)
+            deliver_output(render_content)
           end
 
           private
@@ -66,15 +61,33 @@ module Repo
             argv[index + 1] if index
           end
 
+          def compare?
+            argv.include?('--compare')
+          end
+
           def json?
             option_value('--format') == 'json'
           end
 
+          def markdown?
+            option_value('--format') == 'markdown'
+          end
+
+          def render_content
+            ContentRenderer.new(self).render
+          end
+
           def report_payload
+            return analysis_summary.merge(comparison: comparison_data) if compare?
+
             analysis_summary.merge(
               interpreter: interpreter_name,
               explanation: explanation_text
             )
+          end
+
+          def comparison_data
+            @comparison_data ||= ExplanationComparison.build(explanation_context)
           end
 
           def analysis_summary
@@ -90,15 +103,15 @@ module Repo
           end
 
           def explanation_interpreter
-            @explanation_interpreter ||= interpreter_class.new
+            @explanation_interpreter ||= interpreter_for(interpreter_name)
           end
 
-          def interpreter_class
-            INTERPRETERS.fetch(interpreter_name)
+          def interpreter_for(name)
+            INTERPRETERS.fetch(name).new
           end
 
           def explanation_context
-            ExplanationContext.new(analysis_summary.fetch(:summary))
+            @explanation_context ||= ExplanationContext.new(analysis_summary.fetch(:summary))
           end
 
           def output_path

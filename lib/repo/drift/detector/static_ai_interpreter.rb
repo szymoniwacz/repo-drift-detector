@@ -10,14 +10,16 @@ module Repo
       class StaticAiInterpreter < ExplanationInterpreter
         SIGNAL_BRIEF_LABEL = 'Signal brief:'
 
-        def interpret(context)
+        def interpret(context, signal_brief: true)
           ctx = normalize_context(context)
+          sections = [assessment_line(ctx), coverage_note(ctx)]
+          sections << signal_brief_section(ctx) if signal_brief
 
-          [
-            assessment_line(ctx),
-            coverage_note(ctx),
-            "#{SIGNAL_BRIEF_LABEL}\n#{PromptBuilder.new(ctx).build}"
-          ].compact.join("\n\n")
+          sections.compact.join("\n\n")
+        end
+
+        def signal_brief_section(ctx)
+          "#{SIGNAL_BRIEF_LABEL}\n#{PromptBuilder.new(ctx).build}"
         end
 
         private

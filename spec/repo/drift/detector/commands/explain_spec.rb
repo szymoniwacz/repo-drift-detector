@@ -158,6 +158,93 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
         'summary' => a_hash_including('risk_score' => 92)
       )
     end
+
+    describe 'compare mode' do
+      let(:compare_argv) { ['--goal', 'feature', '--base', 'main', '--compare'] }
+
+      it 'prints both explanations and comparison notes in text output' do
+        command = described_class.new(compare_argv)
+
+        output = capture_output { command.call }
+
+        expect(output).to include('=== Deterministic explanation ===')
+        expect(output).to include('Repository risk is elevated')
+        expect(output).to include('=== Static AI explanation ===')
+        expect(output).to include('Assessed repository drift risk as high')
+        expect(output).to include('=== Comparison notes ===')
+        expect(output).to include('- deterministic explanation is more signal-oriented')
+        expect(output).to include('- static-ai explanation is more interpretive')
+      end
+
+      it 'includes comparison in JSON output' do
+        command = described_class.new(compare_argv + ['--format', 'json'])
+
+        json = JSON.parse(capture_output { command.call })
+
+        expect(json['comparison']).to include(
+          'deterministic' => a_string_including('Repository risk is elevated'),
+          'static_ai' => a_string_including('Assessed repository drift risk as high'),
+          'notes' => [
+            'deterministic explanation is more signal-oriented',
+            'static-ai explanation is more interpretive'
+          ]
+        )
+        expect(json).not_to have_key('explanation')
+        expect(json).not_to have_key('interpreter')
+        expect(json['changed_file_count']).to eq(2)
+      end
+
+      it 'renders comparison in markdown output' do
+        command = described_class.new(compare_argv + ['--format', 'markdown'])
+
+        output = capture_output { command.call }
+
+        expect(output).to include('## Deterministic Explanation')
+        expect(output).to include('## Static AI Explanation')
+        expect(output).to include('## Comparison Notes')
+        expect(output).to include('- deterministic explanation is more signal-oriented')
+      end
+
+      it 'remains deterministic for the same input' do
+        first = capture_output { described_class.new(compare_argv).call }
+        second = capture_output { described_class.new(compare_argv).call }
+
+        expect(first).to eq(second)
+      end
+
+      it 'does not expose internal prompt instructions in static-ai comparison output' do
+        command = described_class.new(compare_argv)
+
+        output = capture_output { command.call }
+
+        expect(output).not_to include('Signal brief:')
+        expect(output).not_to include('Do not invent architecture')
+        expect(output).not_to include('Explain repository risk based on these deterministic signals')
+      end
+
+      it 'exits 2 when --compare is combined with --interpreter' do
+        argv = ['--goal', 'feature', '--base', 'main', '--compare', '--interpreter', 'static-ai']
+        command = described_class.new(argv)
+
+        _stdout, stderr = capture_output_and_error do
+          expect { command.call }.to raise_error(SystemExit) { |error| expect(error.status).to eq(2) }
+        end
+
+        expect(stderr).to include('--interpreter cannot be used with --compare')
+      end
+    end
+
+    describe 'markdown format' do
+      it 'renders a single deterministic explanation as markdown' do
+        argv = ['--goal', 'feature', '--base', 'main', '--format', 'markdown']
+        command = described_class.new(argv)
+
+        output = capture_output { command.call }
+
+        expect(output).to start_with("## Explanation\n\n")
+        expect(output).to include('Repository risk is elevated')
+      end
+    end
   end
 
   private
