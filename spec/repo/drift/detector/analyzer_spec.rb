@@ -5,19 +5,38 @@ require 'tmpdir'
 require 'repo/drift/detector/analyzer'
 
 RSpec.describe Repo::Drift::Detector::Analyzer do
+  describe 'git diff failures' do
+    it 'raises GitDiffError when git cannot diff against the base ref' do
+      analyzer = described_class.new(base: 'definitely-not-a-real-ref')
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff)
+      allow(git_diff).to receive(:changed_file_names).and_raise(
+        Repo::Drift::Detector::GitDiffError,
+        "Git diff against 'definitely-not-a-real-ref' failed: fatal: bad revision"
+      )
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
+
+      expect { analyzer.changed_files }.to raise_error(
+        Repo::Drift::Detector::GitDiffError,
+        /definitely-not-a-real-ref/
+      )
+    end
+  end
+
   describe '#changed_files' do
     it 'parses git diff --name-only output' do
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_files).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --name-only main').and_return("file1.rb\nfile2.rb\nfile3.rb")
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff)
+      allow(git_diff).to receive(:changed_file_names).and_return("file1.rb\nfile2.rb\nfile3.rb")
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       expect(analyzer.changed_files).to eq(['file1.rb', 'file2.rb', 'file3.rb'])
     end
 
     it 'handles single file' do
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_files).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --name-only main').and_return('single_file.rb')
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff)
+      allow(git_diff).to receive(:changed_file_names).and_return('single_file.rb')
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       expect(analyzer.changed_files).to eq(['single_file.rb'])
     end
@@ -351,8 +370,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     it 'parses git diff --numstat output' do
       output = "10\t5\tfile1.rb\n20\t10\tfile2.rb"
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_file_stats).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --numstat main').and_return(output)
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff, numstat_lines: output)
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       stats = analyzer.changed_file_stats
       expect(stats.count).to eq(2)
@@ -373,8 +392,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     it 'converts added and removed values to integers' do
       output = "100\t50\tconfig.yml"
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_file_stats).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --numstat main').and_return(output)
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff, numstat_lines: output)
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       stats = analyzer.changed_file_stats
       expect(stats[0][:added]).to be_an(Integer)
@@ -386,8 +405,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     it 'calculates total_changes correctly' do
       output = "7\t3\tfile.rb"
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_file_stats).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --numstat main').and_return(output)
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff, numstat_lines: output)
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       stats = analyzer.changed_file_stats
       expect(stats[0][:total_changes]).to eq(10)
@@ -395,8 +414,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
 
     it 'returns empty array when output is empty' do
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_file_stats).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --numstat main').and_return('')
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff, numstat_lines: '')
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       stats = analyzer.changed_file_stats
       expect(stats).to eq([])
@@ -405,8 +424,8 @@ RSpec.describe Repo::Drift::Detector::Analyzer do
     it 'handles zero additions and removals' do
       output = "0\t0\tbinary_file.bin"
       analyzer = described_class.new(base: 'main')
-      allow(analyzer).to receive(:changed_file_stats).and_call_original
-      allow(analyzer).to receive(:`).with('git diff --numstat main').and_return(output)
+      git_diff = instance_double(Repo::Drift::Detector::GitDiff, numstat_lines: output)
+      allow(analyzer).to receive(:git_diff).and_return(git_diff)
 
       stats = analyzer.changed_file_stats
       expect(stats[0][:total_changes]).to eq(0)

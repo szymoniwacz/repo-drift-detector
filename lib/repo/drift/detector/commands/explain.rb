@@ -3,6 +3,7 @@
 require 'repo/drift/detector/ai/configuration_error'
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
+require 'repo/drift/detector/git_diff_error'
 require_relative 'explain/argument_validator'
 require_relative 'explain_runner'
 
@@ -20,7 +21,7 @@ module Repo
             load_config!
 
             deliver_output(runner.render)
-          rescue Ai::ConfigurationError => e
+          rescue Ai::ConfigurationError, GitDiffError => e
             warn e.message
             exit 2
           end

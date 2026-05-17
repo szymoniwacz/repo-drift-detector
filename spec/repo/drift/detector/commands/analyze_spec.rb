@@ -731,6 +731,60 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
       end
     end
 
+    it 'uses text output when --format is omitted' do
+      argv = ['--goal', 'feature', '--base', 'main']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:changed_file_stats).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:large_change_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:high_risk_files).and_return([])
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_level).and_return(:low)
+      allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+        .to receive(:risk_reasons).and_return([])
+
+      output = capture_output { command.call }
+
+      expect(output).to include('Goal: feature')
+      expect { JSON.parse(output) }.to raise_error(JSON::ParserError)
+    end
+
+    it 'exits 2 for invalid --format' do
+      argv = ['--goal', 'feature', '--base', 'main', '--format', 'yaml']
+      command = described_class.new(argv)
+
+      _stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(2)
+        end
+      end
+
+      expect(stderr).to include("Invalid --format value 'yaml'")
+    end
+
+    it 'exits 2 when base ref is invalid' do
+      argv = ['--goal', 'feature', '--base', 'definitely-not-a-real-ref']
+      command = described_class.new(argv)
+
+      allow_any_instance_of(Repo::Drift::Detector::GitDiff).to receive(:changed_file_names).and_raise(
+        Repo::Drift::Detector::GitDiffError,
+        "Git diff against 'definitely-not-a-real-ref' failed: fatal: bad revision 'definitely-not-a-real-ref'"
+      )
+
+      _stdout, stderr = capture_output_and_error do
+        expect { command.call }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(2)
+        end
+      end
+
+      expect(stderr).to include("Git diff against 'definitely-not-a-real-ref' failed")
+    end
+
     describe 'JSON summary object' do
       let(:argv) { ['--goal', 'feature', '--base', 'main', '--format', 'json'] }
       let(:command) { described_class.new(argv) }

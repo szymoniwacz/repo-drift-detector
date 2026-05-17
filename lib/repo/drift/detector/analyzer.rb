@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'git_diff'
 require_relative 'risk_evaluator'
 require_relative 'config'
 
@@ -13,7 +14,7 @@ module Repo
         end
 
         def changed_files
-          `git diff --name-only #{@base}`.split("\n")
+          git_diff.changed_file_names.split("\n").reject(&:empty?)
         end
 
         def changed_file_count
@@ -50,8 +51,9 @@ module Repo
         end
 
         def changed_file_stats
-          `git diff --numstat #{@base}`.split("\n").map do |line|
-            added, removed, file = line.split("\t")
+          git_diff.numstat_lines.split("\n").filter_map do |line|
+            added, removed, file = line.split("\t", 3)
+            next if file.nil?
 
             {
               file: file,
@@ -89,6 +91,10 @@ module Repo
         end
 
         private
+
+        def git_diff
+          @git_diff ||= GitDiff.new(base: @base)
+        end
 
         def resolved_config
           @resolved_config ||= @config_override || Config.load

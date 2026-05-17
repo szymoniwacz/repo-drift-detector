@@ -2,6 +2,7 @@
 
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
+require 'repo/drift/detector/git_diff_error'
 require 'repo/drift/detector/renderers/text_renderer'
 require 'repo/drift/detector/renderers/json_renderer'
 require_relative 'analysis_summary'
@@ -26,15 +27,10 @@ module Repo
             ArgumentValidator.new(argv).validate
             load_config!
 
-            content = if json?
-                        Renderers::JsonRenderer.new.render(summary)
-                      else
-                        Renderers::TextRenderer.new.render(analyzer: analyzer, goal: goal, base: base)
-                      end
-
-            deliver_output(content)
-
+            deliver_output(render_analysis_content)
             handle_fail_on
+          rescue GitDiffError => e
+            abort_git_diff_error(e)
           end
 
           private
@@ -67,6 +63,19 @@ module Repo
 
           def json?
             option_value('--format') == 'json'
+          end
+
+          def render_analysis_content
+            if json?
+              Renderers::JsonRenderer.new.render(summary)
+            else
+              Renderers::TextRenderer.new.render(analyzer: analyzer, goal: goal, base: base)
+            end
+          end
+
+          def abort_git_diff_error(error)
+            warn error.message
+            exit 2
           end
 
           def summary
