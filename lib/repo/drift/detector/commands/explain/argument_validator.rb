@@ -11,6 +11,7 @@ module Repo
             end
 
             def validate
+              validate_interpreter_option
               validate_output_option
             end
 
@@ -21,6 +22,21 @@ module Repo
             def option_value(flag)
               index = argv.index(flag)
               argv[index + 1] if index
+            end
+
+            def validate_interpreter_option
+              return unless argv.include?('--interpreter')
+
+              value = option_value('--interpreter')
+              unless value.is_a?(String) && !value.empty? && !value.start_with?('-')
+                warn 'Invalid --interpreter: a value is required after --interpreter'
+                exit 2
+              end
+              return if Explain::INTERPRETERS.key?(value)
+
+              valid = Explain::INTERPRETERS.keys.join(', ')
+              warn "Invalid --interpreter value '#{value}'. Valid values are: #{valid}."
+              exit 2
             end
 
             def validate_output_option

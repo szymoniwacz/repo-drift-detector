@@ -4,6 +4,7 @@ require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
 require 'repo/drift/detector/deterministic_interpreter'
 require 'repo/drift/detector/explanation_context'
+require 'repo/drift/detector/static_ai_interpreter'
 require 'repo/drift/detector/renderers/json_renderer'
 require_relative 'analysis_summary'
 require_relative 'explain/argument_validator'
@@ -13,6 +14,13 @@ module Repo
     module Detector
       module Commands
         class Explain
+          DEFAULT_INTERPRETER = 'deterministic'
+
+          INTERPRETERS = {
+            'deterministic' => DeterministicInterpreter,
+            'ai' => StaticAiInterpreter
+          }.freeze
+
           def initialize(argv)
             @argv = argv
           end
@@ -63,7 +71,10 @@ module Repo
           end
 
           def report_payload
-            analysis_summary.merge(explanation: explanation_text)
+            analysis_summary.merge(
+              interpreter: interpreter_name,
+              explanation: explanation_text
+            )
           end
 
           def analysis_summary
@@ -74,8 +85,16 @@ module Repo
             @explanation_text ||= explanation_interpreter.interpret(explanation_context)
           end
 
+          def interpreter_name
+            @interpreter_name ||= option_value('--interpreter') || DEFAULT_INTERPRETER
+          end
+
           def explanation_interpreter
-            @explanation_interpreter ||= DeterministicInterpreter.new
+            @explanation_interpreter ||= interpreter_class.new
+          end
+
+          def interpreter_class
+            INTERPRETERS.fetch(interpreter_name)
           end
 
           def explanation_context
