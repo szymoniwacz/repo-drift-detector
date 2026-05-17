@@ -3,6 +3,7 @@
 
 require 'repo/drift/detector'
 require 'repo/drift/detector/commands/analyze'
+require 'repo/drift/detector/commands/explain'
 
 command = ARGV.first
 args = ARGV.drop(1)
@@ -10,6 +11,8 @@ args = ARGV.drop(1)
 case command
 when 'analyze'
   Repo::Drift::Detector::Commands::Analyze.new(args).call
+when 'explain'
+  Repo::Drift::Detector::Commands::Explain.new(args).call
 else
   puts 'Unknown command'
 end

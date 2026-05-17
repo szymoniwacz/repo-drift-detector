@@ -2,22 +2,17 @@
 
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
-require 'repo/drift/detector/renderers/text_renderer'
+require 'repo/drift/detector/explanation_context'
+require 'repo/drift/detector/explanation_renderer'
 require 'repo/drift/detector/renderers/json_renderer'
 require_relative 'analysis_summary'
-require_relative 'analyze/argument_validator'
+require_relative 'explain/argument_validator'
 
 module Repo
   module Drift
     module Detector
       module Commands
-        class Analyze
-          FAIL_ON_LEVELS = {
-            'low' => 0,
-            'medium' => 1,
-            'high' => 2
-          }.freeze
-
+        class Explain
           def initialize(argv)
             @argv = argv
           end
@@ -27,14 +22,12 @@ module Repo
             load_config!
 
             content = if json?
-                        Renderers::JsonRenderer.new.render(summary)
+                        Renderers::JsonRenderer.new.render(report_payload)
                       else
-                        Renderers::TextRenderer.new.render(analyzer: analyzer, goal: goal, base: base)
+                        explanation_text
                       end
 
             deliver_output(content)
-
-            handle_fail_on
           end
 
           private
@@ -69,23 +62,20 @@ module Repo
             option_value('--format') == 'json'
           end
 
-          def summary
-            analysis_summary.to_h
+          def report_payload
+            analysis_summary.merge(explanation: explanation_text)
           end
 
           def analysis_summary
-            @analysis_summary ||= AnalysisSummary.new(analyzer: analyzer, goal: goal, base: base)
+            @analysis_summary ||= AnalysisSummary.new(analyzer: analyzer, goal: goal, base: base).to_h
           end
 
-          def handle_fail_on
-            return unless fail_on
-
-            current_level = FAIL_ON_LEVELS[analyzer.risk_level.to_s]
-            exit 1 if current_level >= FAIL_ON_LEVELS[fail_on]
+          def explanation_text
+            @explanation_text ||= ExplanationRenderer.new(explanation_context).render
           end
 
-          def fail_on
-            option_value('--fail-on')
+          def explanation_context
+            ExplanationContext.new(analysis_summary.fetch(:summary))
           end
 
           def output_path
@@ -96,7 +86,7 @@ module Repo
             path = output_path
             if path
               write_output_file(content, path)
-              puts "Analysis written to #{path}"
+              puts "Explanation written to #{path}"
             else
               puts content
             end
