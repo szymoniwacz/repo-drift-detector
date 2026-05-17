@@ -2,8 +2,8 @@
 
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
-require 'repo/drift/detector/explain_runner'
 require_relative 'explain/argument_validator'
+require_relative 'explain_runner'
 
 module Repo
   module Drift
@@ -26,7 +26,7 @@ module Repo
           attr_reader :argv
 
           def runner
-            @runner ||= ExplainRunner.new(
+            @runner ||= Commands::ExplainRunner.new(
               analyzer: analyzer,
               goal: goal,
               base: base,

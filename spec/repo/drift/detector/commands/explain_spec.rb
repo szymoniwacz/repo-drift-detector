@@ -10,7 +10,7 @@ require 'json'
 
 RSpec.describe Repo::Drift::Detector::Commands::Explain do
   describe '#call' do
-    before { stub_analyzer_for_explain }
+    before { stub_high_risk_analyzer }
 
     it 'prints deterministic explanation text' do
       argv = ['--goal', 'feature', '--base', 'main']
@@ -54,22 +54,13 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       end
     end
 
-    it 'supports --goal in the report payload' do
-      argv = ['--goal', 'my-feature', '--base', 'main', '--format', 'json']
+    it 'includes goal and base in JSON output' do
+      argv = ['--goal', 'my-feature', '--base', 'origin/main', '--format', 'json']
       command = described_class.new(argv)
 
-      output = capture_output { command.call }
+      json = JSON.parse(capture_output { command.call })
 
-      expect(JSON.parse(output)['goal']).to eq('my-feature')
-    end
-
-    it 'supports --base in the report payload' do
-      argv = ['--goal', 'feature', '--base', 'origin/main', '--format', 'json']
-      command = described_class.new(argv)
-
-      output = capture_output { command.call }
-
-      expect(JSON.parse(output)['base']).to eq('origin/main')
+      expect(json).to include('goal' => 'my-feature', 'base' => 'origin/main')
     end
 
     it 'default explanation matches DeterministicInterpreter for the same signals' do
@@ -276,34 +267,6 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       high_risk_file_count: 1,
       large_change_count: 1
     }
-  end
-
-  def stub_analyzer_for_explain
-    large_change = { file: 'file2.rb', added: 2, removed: 1, total_changes: 3 }
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:changed_file_count).and_return(2)
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:changed_files).and_return(%w[file1.rb file2.rb])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:changed_file_stats).and_return([])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:large_change_files).and_return([large_change])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:documentation_files).and_return([])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:test_files).and_return([])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:production_files).and_return(%w[file1.rb file2.rb])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:unsafe_change_ratio).and_return(4.5)
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:high_risk_files).and_return(%w[file2.rb])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:risk_level).and_return(:high)
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:risk_reasons).and_return(['unsafe_change_ratio_above_threshold'])
-    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
-      .to receive(:risk_score).and_return(92)
   end
 
   def capture_output

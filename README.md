@@ -14,6 +14,53 @@ The tool still uses Git to discover what changed, but it **interprets** that dif
 
 So the output is closer to a small drift report than `git diff --stat`.
 
+## Architecture
+
+```
+lib/repo/drift/detector/
+├── analyzer.rb              # Git diff + file categorization + risk metrics
+├── risk_evaluator.rb        # risk_level, risk_score, risk_reasons from thresholds
+├── config.rb                # .repo-drift-detector.yml
+├── commands/
+│   ├── analyze.rb           # analyze CLI
+│   ├── explain.rb           # explain CLI (argv, output file, exit codes)
+│   └── explain_runner.rb    # explain workflow: analysis → interpreters → render
+├── explanation/
+│   ├── context.rb           # compact signal hash for explanations
+│   ├── comparison.rb        # side-by-side deterministic vs static-ai text
+│   ├── prompt_builder.rb    # internal prompt text (not shown to users)
+│   └── ai_response_composer.rb  # user-visible static-ai wording
+├── interpreters/
+│   ├── deterministic_interpreter.rb  # rule-based explanation
+│   └── static_ai_interpreter.rb      # offline “AI-style” explanation
+└── renderers/
+    ├── text_renderer.rb     # analyze text report
+    ├── json_renderer.rb     # JSON formatting
+    ├── explanation_renderer.rb       # deterministic explanation body
+    ├── explanation_markdown_renderer.rb
+    ├── comparison_text_renderer.rb
+    └── comparison_markdown_renderer.rb
+```
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Commands** | Parse CLI flags, load config, write stdout/files, exit codes |
+| **Analyzer** | Run git diff, categorize files, compute change stats |
+| **RiskEvaluator** | Map metrics to risk level, score, and reason codes |
+| **ExplanationContext** | Normalize `summary` into explanation inputs |
+| **Interpreters** | Turn context into explanation **text** |
+| **Renderers** | Format text for CLI: plain, JSON, or markdown |
+
+### Deterministic vs static-ai
+
+- **`deterministic`** (default): rule-based narrative from observable file-change signals (`ExplanationRenderer`).
+- **`static-ai`**: offline, **fully deterministic** “AI-style” prose (`AiResponseComposer`). It uses `PromptBuilder` internally to stay grounded in signals but **does not** print prompt templates or instructions. No network, no API keys, no LLM.
+- **`ai`**: invalid today (reserved for a future real provider).
+
+### Compare mode
+
+`explain --compare` runs **both** interpreters on the same signals and prints deterministic text, static-ai text, and short comparison notes. JSON uses a `comparison` object instead of top-level `explanation` / `interpreter`.
+
 ## Installation
 
 ```ruby
@@ -41,11 +88,39 @@ mise exec -- bundle exec exe/repo-drift-detector <command> [options]
 | Command | Purpose |
 |---------|---------|
 | `analyze` | Full drift report (file lists, stats, risk level, reasons, score) |
-| `explain` | Short deterministic explanation of repository risk from the same signals |
+| `explain` | Explanation of repository risk from the same signals |
 
-**`--base`** is the Git ref to compare against (e.g. `main`, `origin/main`). **`--goal`** is optional metadata copied into JSON (branch name, ticket, etc.). CI in this repo usually passes only **`--base`**.
+**`--base`** is the Git ref to compare against (e.g. `main`, `origin/main`). **`--goal`** is optional metadata copied into JSON (branch name, ticket, etc.).
 
-Supported output formats: **`text`** (default) and **`json`**. There is no `--format markdown`; use JSON and render elsewhere if you need Markdown.
+Output formats: **`text`** (default), **`json`**, and for **`explain`** only **`markdown`**.
+
+### Examples
+
+```bash
+# Analyze (text)
+mise exec -- bundle exec exe/repo-drift-detector analyze \
+  --goal my-branch --base main
+
+# Analyze (JSON)
+mise exec -- bundle exec exe/repo-drift-detector analyze \
+  --goal my-branch --base main --format json
+
+# Explain (deterministic text)
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main
+
+# Explain (static-ai, still offline and deterministic)
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main --interpreter static-ai
+
+# Compare both interpreters
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main --compare
+
+# Write markdown report to a file
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main --format markdown --output report.md
+```
 
 ---
 
@@ -61,53 +136,16 @@ Options:
 - **`--output <path>`** — write the report to a file; stdout shows `Analysis written to <path>`
 - **`--fail-on low|medium|high`** — exit **1** when risk is at or above that level (after writing `--output`, if set)
 
-Examples:
-
-```bash
-mise exec -- bundle exec exe/repo-drift-detector analyze \
-  --goal my-branch --base main
-
-mise exec -- bundle exec exe/repo-drift-detector analyze \
-  --goal my-branch --base main --format json --output drift-report.json
-```
-
-### Text output (example)
-
-```text
-Analyzing repository drift...
-Goal: my-branch
-Base: main
-
-Changed file count: 2
-...
-Risk level: medium
-Risk score: 27
-
-Risk reasons:
-- total_changes_above_20
-```
-
 ### JSON output (example)
 
-Top-level fields include the full analysis plus a compact **`summary`** object for automation and downstream explanation:
+Top-level fields include the full analysis plus a compact **`summary`** object:
 
 ```json
 {
   "goal": "my-branch",
   "base": "main",
   "changed_file_count": 2,
-  "changed_files": ["lib/widget.rb", "spec/widget_spec.rb"],
-  "change_stats": [
-    {"file": "lib/widget.rb", "added": 12, "removed": 3, "total_changes": 15}
-  ],
-  "large_changes": [],
-  "documentation_files": [],
-  "test_files": ["spec/widget_spec.rb"],
-  "production_files": ["lib/widget.rb"],
-  "unsafe_change_ratio": 0.0,
-  "high_risk_files": [],
   "risk_level": "medium",
-  "risk_reasons": ["total_changes_above_20"],
   "risk_score": 27,
   "summary": {
     "risk_level": "medium",
@@ -123,8 +161,6 @@ Top-level fields include the full analysis plus a compact **`summary`** object f
 }
 ```
 
-Exact values depend on your repo and config.
-
 ---
 
 ## `explain`
@@ -133,56 +169,45 @@ Exact values depend on your repo and config.
 mise exec -- bundle exec exe/repo-drift-detector explain [--goal <label>] --base <ref> [options]
 ```
 
-Produces a concise **explanation** from the same analyzer signals as `analyze`. Default output is plain text (the explanation only). JSON includes the full analysis payload, an **`explanation`** string, and which interpreter ran.
-
 Options:
 
-- **`--format json`** — same fields as `analyze` JSON, plus **`interpreter`** and **`explanation`**
+- **`--format json`** — full analysis JSON plus **`interpreter`** and **`explanation`** (single mode)
+- **`--format markdown`** — markdown sections for explanation or compare output
 - **`--output <path>`** — write report to a file; stdout shows `Explanation written to <path>`
-- **`--interpreter deterministic`** (default) — rule-based narrative via `ExplanationRenderer`
-- **`--interpreter static-ai`** — offline “AI-style” text built from `PromptBuilder` signal briefs (**not** a real LLM)
+- **`--interpreter deterministic|static-ai`** — default `deterministic`
+- **`--compare`** — show deterministic and static-ai explanations with comparison notes (cannot combine with `--interpreter`)
 
-### Interpreters
+Invalid `--interpreter` values exit **2** with: `deterministic`, `static-ai`.
 
-| Value | What it is |
-|-------|------------|
-| `deterministic` (default) | Rule-based explanation from observable signals only |
-| `static-ai` | Deterministic placeholder that formats signals like an AI brief; no network, no API keys |
-| `ai` | **Invalid** today — reserved for a future real provider integration |
-
-Invalid `--interpreter` values exit **2** with a message listing valid options: `deterministic`, `static-ai`.
-
-Examples:
-
-```bash
-# Default deterministic explanation on stdout
-mise exec -- bundle exec exe/repo-drift-detector explain \
-  --goal my-branch --base main
-
-# JSON with interpreter metadata
-mise exec -- bundle exec exe/repo-drift-detector explain \
-  --goal my-branch --base main --format json
-
-# Offline static-ai style (still deterministic, no network)
-mise exec -- bundle exec exe/repo-drift-detector explain \
-  --goal my-branch --base main --interpreter static-ai
-```
-
-### `explain` JSON (example)
+### Single-mode JSON (example)
 
 ```json
 {
   "goal": "my-branch",
   "base": "main",
   "risk_level": "high",
-  "risk_score": 92,
   "summary": { "...": "..." },
   "interpreter": "deterministic",
   "explanation": "Repository risk is elevated based on the current deterministic file-change signals.\n\n..."
 }
 ```
 
-With **`--interpreter static-ai`**, `"interpreter": "static-ai"` and the explanation includes a structured **Signal brief:** section (bullet lists of counts and patterns)—still plain text, not Markdown export.
+### Compare mode
+
+Text output uses `=== Deterministic explanation ===`, `=== Static AI explanation ===`, and `=== Comparison notes ===`. JSON includes:
+
+```json
+{
+  "comparison": {
+    "deterministic": "...",
+    "static_ai": "...",
+    "notes": [
+      "deterministic explanation is more signal-oriented",
+      "static-ai explanation is more interpretive"
+    ]
+  }
+}
+```
 
 ---
 
@@ -219,6 +244,8 @@ bin/setup
 mise exec -- bundle exec rspec
 mise exec -- bundle exec rubocop
 ```
+
+Specs mirror `lib/` where practical: `spec/repo/drift/detector/commands/`, `interpreters/`, `explanation/`, `renderers/`.
 
 ## Contributing
 

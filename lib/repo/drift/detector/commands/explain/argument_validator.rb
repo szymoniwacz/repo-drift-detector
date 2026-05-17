@@ -49,7 +49,7 @@ module Repo
 
               value = option_value('--interpreter')
               exit_with_interpreter_usage_error if interpreter_value_missing?(value)
-              return if ExplainRunner::INTERPRETERS.key?(value)
+              return if Commands::ExplainRunner::INTERPRETERS.key?(value)
 
               exit_with_invalid_interpreter(value)
             end
@@ -64,7 +64,7 @@ module Repo
             end
 
             def exit_with_invalid_interpreter(value)
-              valid = ExplainRunner::INTERPRETERS.keys.join(', ')
+              valid = Commands::ExplainRunner::INTERPRETERS.keys.join(', ')
               warn "Invalid --interpreter value '#{value}'. Valid values are: #{valid}."
               exit 2
             end
