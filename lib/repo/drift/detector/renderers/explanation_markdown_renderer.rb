@@ -7,7 +7,8 @@ module Repo
         class ExplanationMarkdownRenderer
           TITLES = {
             'deterministic' => 'Explanation',
-            'static-ai' => 'Static AI Explanation'
+            'static-ai' => 'Static AI Explanation',
+            'ai' => 'AI Explanation'
           }.freeze
 
           def render(interpreter_name:, explanation:)

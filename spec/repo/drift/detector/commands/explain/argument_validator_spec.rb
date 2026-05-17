@@ -18,8 +18,14 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain::ArgumentValidator do
       expect { described_class.new(argv).validate }.not_to raise_error
     end
 
-    it 'exits 2 and warns when --interpreter value is invalid' do
+    it 'allows --interpreter ai' do
       argv = ['--goal', 'g', '--base', 'main', '--interpreter', 'ai']
+
+      expect { described_class.new(argv).validate }.not_to raise_error
+    end
+
+    it 'exits 2 and warns when --interpreter value is invalid' do
+      argv = ['--goal', 'g', '--base', 'main', '--interpreter', 'openai']
 
       stderr_io = StringIO.new
       old_stderr = $stderr
@@ -32,8 +38,8 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain::ArgumentValidator do
         $stderr = old_stderr
       end
 
-      expect(stderr_io.string).to include("Invalid --interpreter value 'ai'")
-      expect(stderr_io.string).to include('static-ai')
+      expect(stderr_io.string).to include("Invalid --interpreter value 'openai'")
+      expect(stderr_io.string).to include('ai')
     end
 
     it 'exits 2 when --compare is combined with --interpreter' do

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'repo/drift/detector/ai/configuration_error'
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
 require_relative 'explain/argument_validator'
@@ -19,6 +20,9 @@ module Repo
             load_config!
 
             deliver_output(runner.render)
+          rescue Ai::ConfigurationError => e
+            warn e.message
+            exit 2
           end
 
           private

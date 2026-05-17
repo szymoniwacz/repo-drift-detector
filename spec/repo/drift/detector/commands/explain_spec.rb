@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'net/http'
 require 'repo/drift/detector/commands/explain'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
 require 'repo/drift/detector/interpreters/static_ai_interpreter'
@@ -135,8 +136,69 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       end
 
       expect(stderr).to include("Invalid --interpreter value 'openai'")
-      expect(stderr).to include('deterministic, static-ai')
+      expect(stderr).to include('deterministic, static-ai, ai')
       expect(stdout).to be_empty
+    end
+
+    it 'does not call Net::HTTP for deterministic explain' do
+      expect(Net::HTTP).not_to receive(:start)
+
+      capture_output { described_class.new(['--goal', 'feature', '--base', 'main']).call }
+    end
+
+    describe 'ai interpreter' do
+      def stub_open_ai_client(response: 'Elevated repository drift risk from OpenAI.')
+        client = instance_double(Repo::Drift::Detector::Ai::OpenAiClient, complete: response)
+        allow(Repo::Drift::Detector::Ai::OpenAiClient).to receive(:new).and_return(client)
+      end
+
+      it 'prints explanation text from the AI client' do
+        stub_open_ai_client
+        argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'ai']
+        command = described_class.new(argv)
+
+        output = capture_output { command.call }
+
+        expect(output).to eq("Elevated repository drift risk from OpenAI.\n")
+        expect(Repo::Drift::Detector::Ai::OpenAiClient).to have_received(:new)
+      end
+
+      it 'includes interpreter ai in JSON output' do
+        stub_open_ai_client
+        argv = ['--goal', 'feature', '--base', 'main', '--format', 'json', '--interpreter', 'ai']
+        command = described_class.new(argv)
+
+        json = JSON.parse(capture_output { command.call })
+
+        expect(json['interpreter']).to eq('ai')
+        expect(json['explanation']).to eq('Elevated repository drift risk from OpenAI.')
+      end
+
+      it 'renders markdown output for ai interpreter' do
+        stub_open_ai_client
+        argv = ['--goal', 'feature', '--base', 'main', '--format', 'markdown', '--interpreter', 'ai']
+        command = described_class.new(argv)
+
+        output = capture_output { command.call }
+
+        expect(output).to start_with("## AI Explanation\n\n")
+        expect(output).to include('Elevated repository drift risk from OpenAI.')
+      end
+
+      it 'exits 2 with a clear message when OPENAI_API_KEY is missing' do
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch).with('OPENAI_API_KEY', nil).and_return(nil)
+        allow(ENV).to receive(:fetch).with('OPENAI_MODEL', anything).and_return('gpt-4o-mini')
+
+        argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'ai']
+        command = described_class.new(argv)
+
+        _stdout, stderr = capture_output_and_error do
+          expect { command.call }.to raise_error(SystemExit) { |error| expect(error.status).to eq(2) }
+        end
+
+        expect(stderr).to include('OPENAI_API_KEY is not set')
+      end
     end
 
     it 'preserves existing JSON fields alongside explanation' do

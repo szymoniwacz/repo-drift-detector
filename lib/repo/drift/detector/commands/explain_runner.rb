@@ -2,6 +2,7 @@
 
 require 'repo/drift/detector/explanation/comparison'
 require 'repo/drift/detector/explanation/context'
+require 'repo/drift/detector/interpreters/ai_interpreter'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
 require 'repo/drift/detector/interpreters/static_ai_interpreter'
 require 'repo/drift/detector/renderers/comparison_markdown_renderer'
@@ -19,7 +20,8 @@ module Repo
 
           INTERPRETERS = {
             'deterministic' => DeterministicInterpreter,
-            'static-ai' => StaticAiInterpreter
+            'static-ai' => StaticAiInterpreter,
+            'ai' => Interpreters::AiInterpreter
           }.freeze
 
           def initialize(analyzer:, goal:, base:, **options)
