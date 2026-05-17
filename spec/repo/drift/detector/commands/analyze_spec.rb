@@ -730,9 +730,112 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         expect(JSON.parse(File.read(out_file))['risk_score']).to eq(42)
       end
     end
+
+    describe 'JSON summary object' do
+      let(:argv) { ['--goal', 'feature', '--base', 'main', '--format', 'json'] }
+      let(:command) { described_class.new(argv) }
+
+      before { stub_analyzer_for_summary_json }
+
+      it 'includes summary in JSON output' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)).to have_key('summary')
+      end
+
+      it 'includes summary in --output JSON report' do
+        Dir.mktmpdir do |dir|
+          out_file = File.join(dir, 'drift-report.json')
+          output_argv = argv + ['--output', out_file]
+          output_command = described_class.new(output_argv)
+
+          capture_output { output_command.call }
+
+          expect(JSON.parse(File.read(out_file))).to have_key('summary')
+        end
+      end
+
+      it 'includes risk_level and risk_score in summary' do
+        output = capture_output { command.call }
+        summary = JSON.parse(output)['summary']
+
+        expect(summary['risk_level']).to eq('medium')
+        expect(summary['risk_score']).to eq(12)
+      end
+
+      it 'includes changed_file_count in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['changed_file_count']).to eq(2)
+      end
+
+      it 'includes production_file_count in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['production_file_count']).to eq(2)
+      end
+
+      it 'includes test_file_count in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['test_file_count']).to eq(1)
+      end
+
+      it 'includes documentation_file_count in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['documentation_file_count']).to eq(1)
+      end
+
+      it 'includes unsafe_change_ratio in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['unsafe_change_ratio']).to eq(2.0)
+      end
+
+      it 'includes high_risk_file_count in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['high_risk_file_count']).to eq(1)
+      end
+
+      it 'includes large_change_count in summary' do
+        output = capture_output { command.call }
+
+        expect(JSON.parse(output)['summary']['large_change_count']).to eq(1)
+      end
+    end
   end
 
   private
+
+  def stub_analyzer_for_summary_json
+    large_change = { file: 'file2.rb', added: 2, removed: 1, total_changes: 3 }
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:changed_file_count).and_return(2)
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:changed_files).and_return(%w[file1.rb file2.rb])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:changed_file_stats).and_return([])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:large_change_files).and_return([large_change])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:documentation_files).and_return(['README.md'])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:test_files).and_return(['spec/analyzer_spec.rb'])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:production_files).and_return(%w[file1.rb file2.rb])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:unsafe_change_ratio).and_return(2.0)
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:high_risk_files).and_return(['file2.rb'])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:risk_level).and_return(:medium)
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:risk_reasons).and_return([])
+    allow_any_instance_of(Repo::Drift::Detector::Analyzer)
+      .to receive(:risk_score).and_return(12)
+  end
 
   def capture_output
     old_stdout = $stdout
