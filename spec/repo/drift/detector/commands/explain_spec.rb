@@ -72,20 +72,15 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       expect(JSON.parse(output)['base']).to eq('origin/main')
     end
 
-    it 'uses the interpreter abstraction for the explanation text' do
+    it 'default explanation matches DeterministicInterpreter for the same signals' do
       argv = ['--goal', 'feature', '--base', 'main']
       command = described_class.new(argv)
-      interpreter = instance_double(
-        Repo::Drift::Detector::DeterministicInterpreter,
-        interpret: 'deterministic explanation'
-      )
+      context = Repo::Drift::Detector::ExplanationContext.new(stubbed_summary_payload)
 
-      allow(Repo::Drift::Detector::DeterministicInterpreter).to receive(:new).and_return(interpreter)
+      output = capture_output { command.call }.chomp
+      expected = Repo::Drift::Detector::DeterministicInterpreter.new.interpret(context)
 
-      output = capture_output { command.call }
-
-      expect(interpreter).to have_received(:interpret)
-      expect(output).to eq("deterministic explanation\n")
+      expect(output).to eq(expected)
     end
 
     it 'remains deterministic for the same input' do
@@ -135,20 +130,6 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       end
     end
 
-    it 'rejects --interpreter ai in favor of static-ai' do
-      argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'ai']
-      command = described_class.new(argv)
-
-      _stdout, stderr = capture_output_and_error do
-        expect { command.call }.to raise_error(SystemExit) do |error|
-          expect(error.status).to eq(2)
-        end
-      end
-
-      expect(stderr).to include("Invalid --interpreter value 'ai'")
-      expect(stderr).to include('static-ai')
-    end
-
     it 'exits 2 for invalid --interpreter values' do
       argv = ['--goal', 'feature', '--base', 'main', '--interpreter', 'openai']
       command = described_class.new(argv)
@@ -180,6 +161,20 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
   end
 
   private
+
+  def stubbed_summary_payload
+    {
+      risk_level: :high,
+      risk_score: 92,
+      changed_file_count: 2,
+      production_file_count: 2,
+      test_file_count: 0,
+      documentation_file_count: 0,
+      unsafe_change_ratio: 4.5,
+      high_risk_file_count: 1,
+      large_change_count: 1
+    }
+  end
 
   def stub_analyzer_for_explain
     large_change = { file: 'file2.rb', added: 2, removed: 1, total_changes: 3 }

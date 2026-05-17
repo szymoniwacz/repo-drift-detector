@@ -755,54 +755,20 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze do
         end
       end
 
-      it 'includes risk_level and risk_score in summary' do
-        output = capture_output { command.call }
-        summary = JSON.parse(output)['summary']
-
-        expect(summary['risk_level']).to eq('medium')
-        expect(summary['risk_score']).to eq(12)
-      end
-
-      it 'includes changed_file_count in summary' do
+      it 'includes compact summary fields derived from analysis metrics' do
         output = capture_output { command.call }
 
-        expect(JSON.parse(output)['summary']['changed_file_count']).to eq(2)
-      end
-
-      it 'includes production_file_count in summary' do
-        output = capture_output { command.call }
-
-        expect(JSON.parse(output)['summary']['production_file_count']).to eq(2)
-      end
-
-      it 'includes test_file_count in summary' do
-        output = capture_output { command.call }
-
-        expect(JSON.parse(output)['summary']['test_file_count']).to eq(1)
-      end
-
-      it 'includes documentation_file_count in summary' do
-        output = capture_output { command.call }
-
-        expect(JSON.parse(output)['summary']['documentation_file_count']).to eq(1)
-      end
-
-      it 'includes unsafe_change_ratio in summary' do
-        output = capture_output { command.call }
-
-        expect(JSON.parse(output)['summary']['unsafe_change_ratio']).to eq(2.0)
-      end
-
-      it 'includes high_risk_file_count in summary' do
-        output = capture_output { command.call }
-
-        expect(JSON.parse(output)['summary']['high_risk_file_count']).to eq(1)
-      end
-
-      it 'includes large_change_count in summary' do
-        output = capture_output { command.call }
-
-        expect(JSON.parse(output)['summary']['large_change_count']).to eq(1)
+        expect(JSON.parse(output)['summary']).to eq(
+          'risk_level' => 'medium',
+          'risk_score' => 12,
+          'changed_file_count' => 2,
+          'production_file_count' => 2,
+          'test_file_count' => 1,
+          'documentation_file_count' => 1,
+          'unsafe_change_ratio' => 2.0,
+          'high_risk_file_count' => 1,
+          'large_change_count' => 1
+        )
       end
     end
   end

@@ -6,11 +6,11 @@
 
 The tool still uses Git to discover what changed, but it **interprets** that diff:
 
-- Groups paths into **documentation**, **test**, and **production**-style files  
-- **Numstat**-style totals per file, **large-change** detection (configurable threshold)  
-- An **unsafe change ratio** (production vs test file counts)  
-- **High-risk file** hints (paths touching sensitive areas, e.g. CLI/commands/analyzer)  
-- A **risk tier** and **`risk_reasons`** derived from thresholds in **`.repo-drift-detector.yml`**
+- Groups paths into **documentation**, **test**, and **production**-style files
+- **Numstat**-style totals per file, **large-change** detection (configurable threshold)
+- An **unsafe change ratio** (production vs test file counts)
+- **High-risk file** hints (paths touching sensitive areas, e.g. CLI/commands/analyzer)
+- A **risk tier**, **`risk_score`** (0–100), and **`risk_reasons`** from thresholds in **`.repo-drift-detector.yml`**
 
 So the output is closer to a small drift report than `git diff --stat`.
 
@@ -30,37 +30,48 @@ From a clone, use your Ruby toolchain (this repo uses **mise**):
 mise exec -- bundle install
 ```
 
-## Usage
+## Commands
 
 Entry point:
+
+```bash
+mise exec -- bundle exec exe/repo-drift-detector <command> [options]
+```
+
+| Command | Purpose |
+|---------|---------|
+| `analyze` | Full drift report (file lists, stats, risk level, reasons, score) |
+| `explain` | Short deterministic explanation of repository risk from the same signals |
+
+**`--base`** is the Git ref to compare against (e.g. `main`, `origin/main`). **`--goal`** is optional metadata copied into JSON (branch name, ticket, etc.). CI in this repo usually passes only **`--base`**.
+
+Supported output formats: **`text`** (default) and **`json`**. There is no `--format markdown`; use JSON and render elsewhere if you need Markdown.
+
+---
+
+## `analyze`
 
 ```bash
 mise exec -- bundle exec exe/repo-drift-detector analyze [--goal <label>] --base <ref> [options]
 ```
 
-**`--base`** is the Git ref to compare against (e.g. `main`, `origin/main`). **`--goal`** is optional; when set, it is copied into the report (e.g. branch or ticket). CI in this repo omits **`--goal`** and only passes **`--base`**.
+Options:
 
-Default output is **text** to stdout. Add **`--format json`** for JSON. Add **`--output path`** to write the report to a file; stdout then shows `Analysis written to path`.
+- **`--format json`** — JSON report on stdout (pretty-printed)
+- **`--output <path>`** — write the report to a file; stdout shows `Analysis written to <path>`
+- **`--fail-on low|medium|high`** — exit **1** when risk is at or above that level (after writing `--output`, if set)
 
 Examples:
 
 ```bash
-# Text report on stdout
 mise exec -- bundle exec exe/repo-drift-detector analyze \
   --goal my-branch --base main
 
-# JSON on stdout
-mise exec -- bundle exec exe/repo-drift-detector analyze \
-  --goal my-branch --base main --format json
-
-# JSON file + confirmation line on stdout
 mise exec -- bundle exec exe/repo-drift-detector analyze \
   --goal my-branch --base main --format json --output drift-report.json
 ```
 
 ### Text output (example)
-
-Illustrative shape of the default report:
 
 ```text
 Analyzing repository drift...
@@ -68,33 +79,9 @@ Goal: my-branch
 Base: main
 
 Changed file count: 2
-
-Changed files:
-- lib/widget.rb
-- spec/widget_spec.rb
-
-Change stats:
-- lib/widget.rb (+12/-3) total=15
-- spec/widget_spec.rb (+40/-0) total=40
-
-Large changes:
-- spec/widget_spec.rb total=40
-
-Documentation files:
-- none
-
-Test files:
-- spec/widget_spec.rb
-
-Production files:
-- lib/widget.rb
-
-Unsafe change ratio: 0.0
-
-High risk files:
-- none
-
+...
 Risk level: medium
+Risk score: 27
 
 Risk reasons:
 - total_changes_above_20
@@ -102,7 +89,7 @@ Risk reasons:
 
 ### JSON output (example)
 
-Pretty-printed JSON includes the same metrics in one object (keys are strings). Illustrative fragment:
+Top-level fields include the full analysis plus a compact **`summary`** object for automation and downstream explanation:
 
 ```json
 {
@@ -113,39 +100,104 @@ Pretty-printed JSON includes the same metrics in one object (keys are strings). 
   "change_stats": [
     {"file": "lib/widget.rb", "added": 12, "removed": 3, "total_changes": 15}
   ],
-  "large_changes": [
-    {"file": "spec/widget_spec.rb", "added": 40, "removed": 0, "total_changes": 40}
-  ],
+  "large_changes": [],
   "documentation_files": [],
   "test_files": ["spec/widget_spec.rb"],
   "production_files": ["lib/widget.rb"],
   "unsafe_change_ratio": 0.0,
   "high_risk_files": [],
   "risk_level": "medium",
-  "risk_reasons": ["total_changes_above_20"]
+  "risk_reasons": ["total_changes_above_20"],
+  "risk_score": 27,
+  "summary": {
+    "risk_level": "medium",
+    "risk_score": 27,
+    "changed_file_count": 2,
+    "production_file_count": 1,
+    "test_file_count": 1,
+    "documentation_file_count": 0,
+    "unsafe_change_ratio": 0.0,
+    "high_risk_file_count": 0,
+    "large_change_count": 0
+  }
 }
 ```
 
-Exact arrays and numbers depend on your repo and config.
+Exact values depend on your repo and config.
 
-### `--fail-on`
+---
 
-Optional **`--fail-on low|medium|high`** exits with status **1** when the reported risk is at or above that level (after writing **`--output`**, if set). Use this in scripts or CI when you want the process to fail on drift severity.
+## `explain`
 
-**GitHub Actions** in this repository runs **`analyze`** in **reporting** mode: JSON is written to **`drift-report.json`** and uploaded as an artifact; the workflow does **not** pass **`--fail-on`**, so CI does not block merges on risk level today.
+```bash
+mise exec -- bundle exec exe/repo-drift-detector explain [--goal <label>] --base <ref> [options]
+```
 
-### Configuration (thresholds)
+Produces a concise **explanation** from the same analyzer signals as `analyze`. Default output is plain text (the explanation only). JSON includes the full analysis payload, an **`explanation`** string, and which interpreter ran.
+
+Options:
+
+- **`--format json`** — same fields as `analyze` JSON, plus **`interpreter`** and **`explanation`**
+- **`--output <path>`** — write report to a file; stdout shows `Explanation written to <path>`
+- **`--interpreter deterministic`** (default) — rule-based narrative via `ExplanationRenderer`
+- **`--interpreter static-ai`** — offline “AI-style” text built from `PromptBuilder` signal briefs (**not** a real LLM)
+
+### Interpreters
+
+| Value | What it is |
+|-------|------------|
+| `deterministic` (default) | Rule-based explanation from observable signals only |
+| `static-ai` | Deterministic placeholder that formats signals like an AI brief; no network, no API keys |
+| `ai` | **Invalid** today — reserved for a future real provider integration |
+
+Invalid `--interpreter` values exit **2** with a message listing valid options: `deterministic`, `static-ai`.
+
+Examples:
+
+```bash
+# Default deterministic explanation on stdout
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main
+
+# JSON with interpreter metadata
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main --format json
+
+# Offline static-ai style (still deterministic, no network)
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main --interpreter static-ai
+```
+
+### `explain` JSON (example)
+
+```json
+{
+  "goal": "my-branch",
+  "base": "main",
+  "risk_level": "high",
+  "risk_score": 92,
+  "summary": { "...": "..." },
+  "interpreter": "deterministic",
+  "explanation": "Repository risk is elevated based on the current deterministic file-change signals.\n\n..."
+}
+```
+
+With **`--interpreter static-ai`**, `"interpreter": "static-ai"` and the explanation includes a structured **Signal brief:** section (bullet lists of counts and patterns)—still plain text, not Markdown export.
+
+---
+
+## Configuration
 
 Optional repo-local file **`.repo-drift-detector.yml`**:
 
 ```yaml
 risk:
-  medium_change_threshold: 20    # default: 20
-  high_change_threshold: 100     # default: 100
-  unsafe_change_ratio_threshold: 3.0  # default: 3.0
+  medium_change_threshold: 20
+  high_change_threshold: 100
+  unsafe_change_ratio_threshold: 3.0
 ```
 
-`high_change_threshold` must be **greater than** `medium_change_threshold`. Invalid YAML or bad values make `analyze` exit **2**.
+`high_change_threshold` must be **greater than** `medium_change_threshold`. Invalid YAML or bad values make commands exit **2**.
 
 ## CI and drift artifacts
 
@@ -158,9 +210,7 @@ mise exec -- bundle exec exe/repo-drift-detector analyze \
   --output drift-report.json
 ```
 
-`$BASE` is `origin/main` on PRs and `HEAD~1` on pushes to `main` (with full history: `fetch-depth: 0`).
-
-The workflow uploads **`drift-report.json`** as artifact **`repo-drift-report`** (`actions/upload-artifact`, `if: always()` so a failed step later can still attach the file when that applies).
+The workflow uploads **`drift-report.json`** as artifact **`repo-drift-report`**.
 
 ## Development
 
