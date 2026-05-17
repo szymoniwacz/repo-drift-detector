@@ -70,7 +70,7 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       context = Repo::Drift::Detector::ExplanationContext.new(stubbed_summary_payload)
 
       output = capture_output { command.call }.chomp
-      expected = Repo::Drift::Detector::DeterministicInterpreter.new.interpret(context)
+      expected = Repo::Drift::Detector::Interpreters::DeterministicInterpreter.new.interpret(context)
 
       expect(output).to eq(expected)
     end

@@ -7,7 +7,7 @@ require 'repo/drift/detector/explanation/prompt_builder'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
 require 'repo/drift/detector/interpreters/static_ai_interpreter'
 
-RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
+RSpec.describe Repo::Drift::Detector::Interpreters::StaticAiInterpreter do
   def high_risk_context
     Repo::Drift::Detector::ExplanationContext.new(
       risk_level: :high,
@@ -31,7 +31,7 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
 
     it 'differs from DeterministicInterpreter output' do
       static_output = described_class.new.interpret(high_risk_context)
-      deterministic_output = Repo::Drift::Detector::DeterministicInterpreter.new.interpret(high_risk_context)
+      deterministic_output = Repo::Drift::Detector::Interpreters::DeterministicInterpreter.new.interpret(high_risk_context)
 
       expect(static_output).not_to eq(deterministic_output)
       expect(static_output).to include('Assessed repository drift risk as high')

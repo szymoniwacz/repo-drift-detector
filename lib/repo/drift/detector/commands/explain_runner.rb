@@ -19,8 +19,8 @@ module Repo
           DEFAULT_INTERPRETER = 'deterministic'
 
           INTERPRETERS = {
-            'deterministic' => DeterministicInterpreter,
-            'static-ai' => StaticAiInterpreter,
+            'deterministic' => Interpreters::DeterministicInterpreter,
+            'static-ai' => Interpreters::StaticAiInterpreter,
             'ai' => Interpreters::AiInterpreter
           }.freeze
 

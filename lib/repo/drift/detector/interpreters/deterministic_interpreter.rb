@@ -5,9 +5,11 @@ require 'repo/drift/detector/renderers/explanation_renderer'
 module Repo
   module Drift
     module Detector
-      class DeterministicInterpreter
-        def interpret(context)
-          ExplanationRenderer.new(context).render
+      module Interpreters
+        class DeterministicInterpreter
+          def interpret(context)
+            ExplanationRenderer.new(context).render
+          end
         end
       end
     end

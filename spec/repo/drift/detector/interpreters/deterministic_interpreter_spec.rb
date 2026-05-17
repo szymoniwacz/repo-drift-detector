@@ -5,7 +5,7 @@ require 'repo/drift/detector/explanation/context'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
 require 'repo/drift/detector/renderers/explanation_renderer'
 
-RSpec.describe Repo::Drift::Detector::DeterministicInterpreter do
+RSpec.describe Repo::Drift::Detector::Interpreters::DeterministicInterpreter do
   def high_risk_context
     Repo::Drift::Detector::ExplanationContext.new(
       risk_level: :high,

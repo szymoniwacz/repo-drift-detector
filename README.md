@@ -30,9 +30,10 @@ lib/repo/drift/detector/
 │   ├── comparison.rb        # side-by-side deterministic vs static-ai text
 │   ├── prompt_builder.rb    # internal prompt text (not shown to users)
 │   └── ai_response_composer.rb  # user-visible static-ai wording
-├── interpreters/
+├── interpreters/                     # Repo::Drift::Detector::Interpreters
 │   ├── deterministic_interpreter.rb  # rule-based explanation
-│   └── static_ai_interpreter.rb      # offline “AI-style” explanation
+│   ├── static_ai_interpreter.rb      # offline “AI-style” explanation
+│   └── ai_interpreter.rb             # OpenAI-backed explanation (network)
 └── renderers/
     ├── text_renderer.rb     # analyze text report
     ├── json_renderer.rb     # JSON formatting
@@ -51,11 +52,11 @@ lib/repo/drift/detector/
 | **Interpreters** | Turn context into explanation **text** |
 | **Renderers** | Format text for CLI: plain, JSON, or markdown |
 
-### Deterministic vs static-ai
+### Interpreters
 
-- **`deterministic`** (default): rule-based narrative from observable file-change signals (`ExplanationRenderer`).
-- **`static-ai`**: offline, **fully deterministic** “AI-style” prose (`AiResponseComposer`). It uses `PromptBuilder` internally to stay grounded in signals but **does not** print prompt templates or instructions. No network, no API keys, no LLM.
-- **`ai`**: invalid today (reserved for a future real provider).
+- **`deterministic`** (default): rule-based narrative from observable file-change signals (`ExplanationRenderer`). No network.
+- **`static-ai`**: offline, **fully deterministic** “AI-style” prose (`AiResponseComposer`). Uses `PromptBuilder` internally to stay grounded in signals but **does not** print prompt templates or instructions. No network, no API keys, no LLM.
+- **`ai`**: real OpenAI-backed explanation via `Ai::OpenAiClient` (Chat Completions). Requires **`OPENAI_API_KEY`**; optional **`OPENAI_MODEL`** (default `gpt-4o-mini`). Makes a network call; output is not deterministic. Missing or invalid configuration exits **2** with a clear stderr message.
 
 ### Compare mode
 
@@ -112,6 +113,10 @@ mise exec -- bundle exec exe/repo-drift-detector explain \
 # Explain (static-ai, still offline and deterministic)
 mise exec -- bundle exec exe/repo-drift-detector explain \
   --goal my-branch --base main --interpreter static-ai
+
+# Explain (OpenAI; requires OPENAI_API_KEY)
+mise exec -- bundle exec exe/repo-drift-detector explain \
+  --goal my-branch --base main --interpreter ai
 
 # Compare both interpreters
 mise exec -- bundle exec exe/repo-drift-detector explain \
@@ -174,10 +179,10 @@ Options:
 - **`--format json`** — full analysis JSON plus **`interpreter`** and **`explanation`** (single mode)
 - **`--format markdown`** — markdown sections for explanation or compare output
 - **`--output <path>`** — write report to a file; stdout shows `Explanation written to <path>`
-- **`--interpreter deterministic|static-ai`** — default `deterministic`
+- **`--interpreter deterministic|static-ai|ai`** — default `deterministic`
 - **`--compare`** — show deterministic and static-ai explanations with comparison notes (cannot combine with `--interpreter`)
 
-Invalid `--interpreter` values exit **2** with: `deterministic`, `static-ai`.
+Invalid `--interpreter` values exit **2**; valid values: `deterministic`, `static-ai`, `ai`.
 
 ### Single-mode JSON (example)
 

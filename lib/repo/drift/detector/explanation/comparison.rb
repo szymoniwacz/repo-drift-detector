@@ -13,8 +13,8 @@ module Repo
         ].freeze
 
         def self.build(context)
-          deterministic = DeterministicInterpreter.new
-          static_ai = StaticAiInterpreter.new
+          deterministic = Interpreters::DeterministicInterpreter.new
+          static_ai = Interpreters::StaticAiInterpreter.new
 
           {
             deterministic: deterministic.interpret(context),
