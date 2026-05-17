@@ -2,8 +2,8 @@
 
 require 'repo/drift/detector/analyzer'
 require 'repo/drift/detector/config'
+require 'repo/drift/detector/deterministic_interpreter'
 require 'repo/drift/detector/explanation_context'
-require 'repo/drift/detector/explanation_renderer'
 require 'repo/drift/detector/renderers/json_renderer'
 require_relative 'analysis_summary'
 require_relative 'explain/argument_validator'
@@ -71,7 +71,11 @@ module Repo
           end
 
           def explanation_text
-            @explanation_text ||= ExplanationRenderer.new(explanation_context).render
+            @explanation_text ||= explanation_interpreter.interpret(explanation_context)
+          end
+
+          def explanation_interpreter
+            @explanation_interpreter ||= DeterministicInterpreter.new
           end
 
           def explanation_context

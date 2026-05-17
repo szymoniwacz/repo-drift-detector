@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 require 'repo/drift/detector/commands/explain'
-require 'repo/drift/detector/explanation_renderer'
+require 'repo/drift/detector/deterministic_interpreter'
 require 'tmpdir'
 require 'stringio'
 require 'json'
@@ -67,16 +67,19 @@ RSpec.describe Repo::Drift::Detector::Commands::Explain do
       expect(JSON.parse(output)['base']).to eq('origin/main')
     end
 
-    it 'uses ExplanationRenderer for the explanation text' do
+    it 'uses the interpreter abstraction for the explanation text' do
       argv = ['--goal', 'feature', '--base', 'main']
       command = described_class.new(argv)
-      renderer = instance_double(Repo::Drift::Detector::ExplanationRenderer, render: 'deterministic explanation')
+      interpreter = instance_double(
+        Repo::Drift::Detector::DeterministicInterpreter,
+        interpret: 'deterministic explanation'
+      )
 
-      allow(Repo::Drift::Detector::ExplanationRenderer).to receive(:new).and_return(renderer)
+      allow(Repo::Drift::Detector::DeterministicInterpreter).to receive(:new).and_return(interpreter)
 
       output = capture_output { command.call }
 
-      expect(Repo::Drift::Detector::ExplanationRenderer).to have_received(:new)
+      expect(interpreter).to have_received(:interpret)
       expect(output).to eq("deterministic explanation\n")
     end
 
