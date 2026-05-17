@@ -16,6 +16,34 @@ RSpec.describe Repo::Drift::Detector::Commands::Analyze::ArgumentValidator do
       expect { described_class.new(argv).validate }.not_to raise_error
     end
 
+    it 'allows argv without --format' do
+      argv = ['--goal', 'g', '--base', 'main']
+      expect { described_class.new(argv).validate }.not_to raise_error
+    end
+
+    it 'allows --format json' do
+      argv = ['--goal', 'g', '--base', 'main', '--format', 'json']
+      expect { described_class.new(argv).validate }.not_to raise_error
+    end
+
+    it 'exits 2 and warns when --format value is invalid' do
+      argv = ['--goal', 'g', '--base', 'main', '--format', 'yaml']
+
+      stderr_io = StringIO.new
+      old_stderr = $stderr
+      $stderr = stderr_io
+      begin
+        expect { described_class.new(argv).validate }.to raise_error(SystemExit) do |err|
+          expect(err.status).to eq(2)
+        end
+      ensure
+        $stderr = old_stderr
+      end
+
+      expect(stderr_io.string).to include("Invalid --format value 'yaml'")
+      expect(stderr_io.string).to include('json')
+    end
+
     it 'exits 2 and warns when --fail-on value is invalid' do
       argv = ['--goal', 'g', '--base', 'main', '--fail-on', 'critical']
 

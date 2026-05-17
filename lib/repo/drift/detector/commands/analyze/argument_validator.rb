@@ -12,6 +12,7 @@ module Repo
             end
 
             def validate
+              validate_format_option
               validate_fail_on_option
               validate_output_option
             end
@@ -23,6 +24,15 @@ module Repo
             def option_value(flag)
               index = argv.index(flag)
               argv[index + 1] if index
+            end
+
+            def validate_format_option
+              value = option_value('--format')
+              return if value.nil?
+              return if value == 'json'
+
+              warn "Invalid --format value '#{value}'. Valid values are: json."
+              exit 2
             end
 
             def validate_fail_on_option
