@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'net/http'
+require 'repo/drift/detector/ai_response_composer'
 require 'repo/drift/detector/explanation/context'
 require 'repo/drift/detector/explanation/prompt_builder'
 require 'repo/drift/detector/interpreters/deterministic_interpreter'
@@ -94,20 +95,24 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
       expect(explanation).not_to match(/\bthe system (is|uses|implements)\b/i)
     end
 
-    it 'includes interpretive signal-grounded insights without prompt template text' do
+    it 'delegates response composition to AiResponseComposer' do
+      composer = instance_double(
+        Repo::Drift::Detector::AiResponseComposer,
+        compose: Repo::Drift::Detector::AiResponseComposer.new(high_risk_context).compose
+      )
+      allow(Repo::Drift::Detector::AiResponseComposer).to receive(:new).and_return(composer)
+
       explanation = described_class.new.interpret(high_risk_context)
 
-      expect(explanation).to include('Taken together, the signals point to high repository drift risk')
-      expect(explanation).to include('The unsafe change ratio of 4.5 suggests production-heavy change')
-      expect(explanation).to include('3 high-risk files in the change set may amplify review and drift risk')
+      expect(Repo::Drift::Detector::AiResponseComposer).to have_received(:new).with(a_hash_including(risk_level: 'high'))
+      expect(composer).to have_received(:compose).with(include_signal_insights: true)
+      expect(explanation).to include('Assessed repository drift risk as high')
     end
 
-    it 'does not leak internal prompt instructions' do
-      explanation = described_class.new.interpret(high_risk_context)
+    it 'matches AiResponseComposer output for wording stability' do
+      expected = Repo::Drift::Detector::AiResponseComposer.new(high_risk_context).compose
 
-      forbidden_prompt_fragments.each do |fragment|
-        expect(explanation).not_to include(fragment)
-      end
+      expect(described_class.new.interpret(high_risk_context)).to eq(expected)
     end
 
     it 'uses PromptBuilder internally without exposing its output' do
@@ -120,14 +125,16 @@ RSpec.describe Repo::Drift::Detector::StaticAiInterpreter do
       expect(explanation).not_to include('INTERNAL PROMPT TEXT')
     end
 
-    it 'omits extended signal insights when signal_brief is false' do
-      explanation = described_class.new.interpret(high_risk_context, signal_brief: false)
+    it 'passes signal_brief to AiResponseComposer as include_signal_insights' do
+      composer = instance_double(Repo::Drift::Detector::AiResponseComposer, compose: 'short explanation')
+      allow(Repo::Drift::Detector::AiResponseComposer).to receive(:new).and_return(composer)
+      allow(Repo::Drift::Detector::PromptBuilder).to receive(:new).and_return(
+        instance_double(Repo::Drift::Detector::PromptBuilder, build: 'internal')
+      )
 
-      expect(explanation).to include('Assessed repository drift risk as high')
-      expect(explanation).not_to include('Taken together, the signals point to')
-      forbidden_prompt_fragments.each do |fragment|
-        expect(explanation).not_to include(fragment)
-      end
+      described_class.new.interpret(high_risk_context, signal_brief: false)
+
+      expect(composer).to have_received(:compose).with(include_signal_insights: false)
     end
   end
 end
