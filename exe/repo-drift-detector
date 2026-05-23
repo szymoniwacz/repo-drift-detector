@@ -1,18 +1,47 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+lib = File.expand_path('../lib', __dir__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
 require 'repo/drift/detector'
 require 'repo/drift/detector/commands/analyze'
 require 'repo/drift/detector/commands/explain'
 
+USAGE = <<~USAGE
+  repo-drift-detector — repository drift and review-risk analysis
+
+  Usage:
+    repo-drift-detector <command> [options]
+
+  Commands:
+    analyze    Deterministic drift report (scope, file mix, risk level)
+    explain    Review guidance from the same deterministic signals
+
+  Common options:
+    --base <ref>     Git ref to compare against (required)
+    --goal <label>   Optional label for reports (branch, ticket, etc.)
+
+  Examples:
+    repo-drift-detector analyze --base main
+    repo-drift-detector explain --base main
+
+  See README for --format, --output, --fail-on, and --interpreter options.
+USAGE
+
+def show_usage
+  puts USAGE
+end
+
 command = ARGV.first
-args = ARGV.drop(1)
 
 case command
 when 'analyze'
-  Repo::Drift::Detector::Commands::Analyze.new(args).call
+  Repo::Drift::Detector::Commands::Analyze.new(ARGV.drop(1)).call
 when 'explain'
-  Repo::Drift::Detector::Commands::Explain.new(args).call
+  Repo::Drift::Detector::Commands::Explain.new(ARGV.drop(1)).call
 else
-  puts 'Unknown command'
+  warn "Unknown command: #{command}" if command
+  show_usage
+  exit 2
 end

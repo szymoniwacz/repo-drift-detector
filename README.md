@@ -1,6 +1,8 @@
 # repo-drift-detector
 
-**repo-drift-detector** summarizes how much a Git branch has diverged from a base ref and assigns a simple **risk level** (low / medium / high) with **machine-readable** output. It is meant for code review and automation: you get a structured view of scope, file mix, and heuristics—not just a raw file list.
+Deterministic repository drift analysis for AI-assisted engineering workflows. **repo-drift-detector** summarizes how much a Git branch has diverged from a base ref and assigns a simple **risk level** (low / medium / high) with **machine-readable** output. It is meant for code review and automation: you get a structured view of scope, file mix, and heuristics—not just a raw file list.
+
+Passing tests and green CI do not guarantee repository quality: a branch can pass checks while scope, file mix, or change patterns still warrant extra review.
 
 ## Why not “just git diff”
 
@@ -95,6 +97,13 @@ mise exec -- bundle exec exe/repo-drift-detector <command> [options]
 
 Output formats: **`text`** (default), **`json`**, and for **`explain`** only **`markdown`**.
 
+### Quick start
+
+```bash
+mise exec -- ruby exe/repo-drift-detector analyze --base main
+mise exec -- ruby exe/repo-drift-detector explain --base main
+```
+
 ### Examples
 
 ```bash
@@ -141,6 +150,22 @@ Options:
 - **`--output <path>`** — write the report to a file; stdout shows `Analysis written to <path>`
 - **`--fail-on low|medium|high`** — exit **1** when risk is at or above that level (after writing `--output`, if set)
 
+### Example output
+
+```
+Analyzing repository drift...
+Base: main
+
+Changed file count: 5
+...
+Risk level: medium
+Risk score: 42
+
+Risk reasons:
+- total_changes_above_20
+- high_risk_files_detected
+```
+
 ### JSON output (example)
 
 Top-level fields include the full analysis plus a compact **`summary`** object:
@@ -183,6 +208,19 @@ Options:
 - **`--compare`** — show deterministic and static-ai explanations with comparison notes (cannot combine with `--interpreter`)
 
 Invalid `--interpreter` values exit **2**; valid values: `deterministic`, `static-ai`, `ai`.
+
+### Example output
+
+```
+Repository risk is moderate based on the current deterministic file-change signals.
+
+1 high-risk file changed in this diff.
+
+Review attention should focus on:
+- multi-file consistency
+- architecture coherence
+- unintended repository drift
+```
 
 ### Single-mode JSON (example)
 
