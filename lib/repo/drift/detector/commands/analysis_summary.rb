@@ -9,6 +9,7 @@ module Repo
             changed_file_count: :changed_file_count,
             changed_files: :changed_files,
             change_stats: :changed_file_stats,
+            line_findings: :line_findings,
             large_changes: :large_change_files,
             documentation_files: :documentation_files,
             test_files: :test_files,
@@ -24,7 +25,8 @@ module Repo
             production_file_count: :production_files,
             test_file_count: :test_files,
             documentation_file_count: :documentation_files,
-            high_risk_file_count: :high_risk_files
+            high_risk_file_count: :high_risk_files,
+            line_finding_count: :line_findings
           }.freeze
 
           def initialize(analyzer:, goal:, base:)
