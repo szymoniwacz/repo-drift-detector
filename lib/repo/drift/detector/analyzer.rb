@@ -3,6 +3,7 @@
 require_relative 'git_diff'
 require_relative 'risk_evaluator'
 require_relative 'config'
+require_relative 'line_finding_extractor'
 
 module Repo
   module Drift
@@ -62,6 +63,13 @@ module Repo
               total_changes: added.to_i + removed.to_i
             }
           end
+        end
+
+        def line_findings
+          @line_findings ||= LineFindingExtractor.new(
+            diff: git_diff.unified_diff,
+            production_files: production_files
+          ).call
         end
 
         def large_change_files(threshold: 20)
