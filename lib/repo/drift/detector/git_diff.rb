@@ -20,6 +20,10 @@ module Repo
           run_git(%w[git diff --numstat])
         end
 
+        def unified_diff
+          run_git(%w[git diff --unified=0])
+        end
+
         private
 
         attr_reader :base
